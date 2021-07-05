@@ -14,7 +14,7 @@ class GeneralisedLogisticFunction5 extends GeneralisedLogisticFunction0 {
 		d = Functions.pow(d, 1.0 + Functions.reciprocal(nu));
 		d *= nu;
 		d = Functions.reciprocal(d);
-		d *= k - a;
+		d *= a - k;
 		d *= base;
 		return d;
 	}

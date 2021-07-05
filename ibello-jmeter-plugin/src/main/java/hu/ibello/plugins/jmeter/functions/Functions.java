@@ -50,6 +50,19 @@ public class Functions {
 		}
 	}
 	
+	public static double division(double a, double b) {
+		if (b == 0.0) {
+			if (a == 0.0) {
+				return 0.0;
+			} else if (a > 0) {
+				return Double.POSITIVE_INFINITY;
+			} else {
+				return Double.NEGATIVE_INFINITY;
+			}
+		}
+		return a / b;
+	}
+	
 	public static double reciprocal(double x) {
 		if (x == 0.0) {
 			return Double.POSITIVE_INFINITY;

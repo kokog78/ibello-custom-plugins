@@ -11,12 +11,12 @@ class GeneralisedLogisticFunction4 extends GeneralisedLogisticFunction0 {
 		double base = -b * x;
 		base = Functions.exp(base);
 		base *= q;
-		double base2 = 1.0 + base;
-		double d = Functions.pow(base2, Functions.reciprocal(nu));
+		base += 1;
+		double d = Functions.pow(base, Functions.reciprocal(nu));
 		d *= nu * nu;
 		d = Functions.reciprocal(d);
 		d *= k - a;
-		d *= Functions.ln(base2);
+		d *= Functions.ln(base);
 		return d;
 	}
 	
