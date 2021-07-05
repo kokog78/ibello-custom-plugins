@@ -8,7 +8,7 @@ import hu.ibello.plugins.jmeter.functions.Function;
 
 public class Regression<F extends DifferentiableFunction> {
 	
-	private final static double ERROR_CHANGE_LIMIT = 0.0000001;
+	private final static double ERROR_CHANGE_LIMIT = 0.00000001;
 
 	protected final F function;
 	protected final List<DataPoint> data;
@@ -16,6 +16,7 @@ public class Regression<F extends DifferentiableFunction> {
 	private double error;
 	private int step = 0;
 	private final DecimalFormat fmt = new DecimalFormat("0.############");
+	private boolean debug;
 	
 	public Regression(F function, List<DataPoint> data) {
 		this.function = function;
@@ -26,13 +27,21 @@ public class Regression<F extends DifferentiableFunction> {
 		this.alpha = 0.01;
 		this.error = error();
 		boolean done = false;
-		printParams();
+		if (debug) {
+			printParams();
+		}
 		step = 0;
 		while (!done) {
 			done = step();
-			printStep();
-			printParams();
+			if (debug) {
+				printStep();
+				printParams();
+			}
 		}
+	}
+	
+	public void setDebug(boolean debug) {
+		this.debug = debug;
 	}
 	
 	public F getFunction() {
