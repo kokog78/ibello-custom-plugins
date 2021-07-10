@@ -6,16 +6,28 @@ public class ApdexData {
 	private int toleratedCount;
 	private int frustratingCount;
 	
-	public void satisfied() {
-		satisfiedCount++;
+	public int getSatisfiedCount() {
+		return satisfiedCount;
+	}
+
+	public int getToleratedCount() {
+		return toleratedCount;
+	}
+
+	public int getFrustratingCount() {
+		return frustratingCount;
+	}
+
+	public void satisfied(int count) {
+		satisfiedCount += count;
 	}
 	
-	public void tolerated() {
-		toleratedCount++;
+	public void tolerated(int count) {
+		toleratedCount += count;
 	}
 	
-	public void frustrated() {
-		frustratingCount++;
+	public void frustrated(int count) {
+		frustratingCount += count;
 	}
 	
 	public double getApdex() {
