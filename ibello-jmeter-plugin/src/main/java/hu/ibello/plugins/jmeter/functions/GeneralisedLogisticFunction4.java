@@ -1,5 +1,7 @@
 package hu.ibello.plugins.jmeter.functions;
 
+import hu.ibello.regression.functions.Functions;
+
 class GeneralisedLogisticFunction4 extends GeneralisedLogisticFunction0 {
 
 	public GeneralisedLogisticFunction4(double a, double k, double b, double nu, double q) {

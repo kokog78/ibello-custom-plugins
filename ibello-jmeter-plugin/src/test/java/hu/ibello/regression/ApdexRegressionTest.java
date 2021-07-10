@@ -1,11 +1,8 @@
-package hu.ibello.plugins.jmeter.apdex;
+package hu.ibello.regression;
 
 import java.util.List;
 
 import org.junit.Test;
-
-import hu.ibello.regression.AbstractRegressionTest;
-import hu.ibello.regression.DataPoint;
 
 public class ApdexRegressionTest extends AbstractRegressionTest {
 
@@ -14,18 +11,15 @@ public class ApdexRegressionTest extends AbstractRegressionTest {
 		List<DataPoint> data = points(
 				point(1, 1),
 				point(5, 1),
-				point(10, 1),
+				point(10, 0.9),
 				point(20, 0.7),
-				point(50, 0.36),
-				point(100, 0.155),
-				point(200, 0.085)
+				point(50, 0.35),
+				point(100, 0.13),
+				point(200, 0.058)
 			);
 		ApdexRegression apdex = new ApdexRegression(data);
-		apdex.setDebug(true);
-		apdex.initialize();
 		System.out.println(apdex.getFunction().toString());
 		apdex.run();
 		System.out.println(apdex.getFunction().toString());
 	}
-	
 }

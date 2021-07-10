@@ -1,9 +1,9 @@
-package hu.ibello.plugins.jmeter.apdex;
+package hu.ibello.regression;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import hu.ibello.plugins.jmeter.regression.DataPoint;
+import hu.ibello.regression.DataPoint;
 
 public class AbstractRegressionTest {
 

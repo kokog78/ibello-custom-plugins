@@ -1,4 +1,6 @@
-package hu.ibello.plugins.jmeter.functions;
+package hu.ibello.regression.functions;
+
+import java.text.DecimalFormat;
 
 public class Functions {
 
@@ -70,6 +72,18 @@ public class Functions {
 			return 0.0;
 		} else {
 			return 1 / x;
+		}
+	}
+	
+	public static void parameterIndexError(int paramIndex) {
+		throw new IllegalArgumentException("Unknown parameter index: " + paramIndex);
+	}
+	
+	private static final DecimalFormat fmt = new DecimalFormat("0.##########");
+	
+	public static String format(double d) {
+		synchronized (fmt) {
+			return fmt.format(d).replace(',', '.');
 		}
 	}
 }

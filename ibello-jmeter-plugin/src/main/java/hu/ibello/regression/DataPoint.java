@@ -1,4 +1,4 @@
-package hu.ibello.plugins.jmeter.regression;
+package hu.ibello.regression;
 
 public interface DataPoint {
 

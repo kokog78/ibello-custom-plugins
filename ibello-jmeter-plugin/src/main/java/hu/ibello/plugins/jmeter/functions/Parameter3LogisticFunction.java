@@ -1,5 +1,7 @@
 package hu.ibello.plugins.jmeter.functions;
 
+import hu.ibello.regression.functions.Function;
+
 public class Parameter3LogisticFunction extends Parameter5LogisticFunction {
 
 	public Parameter3LogisticFunction(double b, double c, double m) {

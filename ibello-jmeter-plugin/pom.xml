@@ -8,13 +8,18 @@
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<ibello.api.version>1.17.0</ibello.api.version>
+		<ibello.api.version>1.18.0</ibello.api.version>
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>hu.ibello</groupId>
 			<artifactId>ibello-api</artifactId>
 			<version>${ibello.api.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.orangepalantir</groupId>
+			<artifactId>leastsquares</artifactId>
+			<version>1.0.0</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>

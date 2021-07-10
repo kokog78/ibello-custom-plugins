@@ -2,6 +2,8 @@ package hu.ibello.plugins.jmeter.functions;
 
 import java.text.DecimalFormat;
 
+import hu.ibello.regression.functions.Function;
+
 public class LinearFunction implements DifferentiableFunction {
 
 	protected double a;

@@ -7,8 +7,9 @@ import java.util.List;
 import org.junit.Test;
 
 import hu.ibello.plugins.jmeter.functions.LinearFunction;
-import hu.ibello.plugins.jmeter.regression.DataPoint;
 import hu.ibello.plugins.jmeter.regression.Regression;
+import hu.ibello.regression.AbstractRegressionTest;
+import hu.ibello.regression.DataPoint;
 
 public class RegressionTest extends AbstractRegressionTest {
 

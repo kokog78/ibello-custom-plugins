@@ -3,8 +3,8 @@ package hu.ibello.plugins.jmeter.apdex;
 import java.util.List;
 
 import hu.ibello.plugins.jmeter.functions.Parameter3LogisticFunction;
-import hu.ibello.plugins.jmeter.regression.DataPoint;
 import hu.ibello.plugins.jmeter.regression.Regression;
+import hu.ibello.regression.DataPoint;
 
 public class ApdexRegression extends Regression<Parameter3LogisticFunction> {
 

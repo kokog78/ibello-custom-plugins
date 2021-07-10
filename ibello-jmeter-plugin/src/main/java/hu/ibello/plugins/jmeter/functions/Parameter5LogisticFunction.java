@@ -1,5 +1,8 @@
 package hu.ibello.plugins.jmeter.functions;
 
+import hu.ibello.regression.functions.Function;
+import hu.ibello.regression.functions.Functions;
+
 public class Parameter5LogisticFunction extends AbstractDifferentiableFunction {
 
 	protected double y0;

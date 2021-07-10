@@ -4,7 +4,8 @@ import java.text.DecimalFormat;
 import java.util.List;
 
 import hu.ibello.plugins.jmeter.functions.DifferentiableFunction;
-import hu.ibello.plugins.jmeter.functions.Function;
+import hu.ibello.regression.DataPoint;
+import hu.ibello.regression.functions.Function;
 
 public class Regression<F extends DifferentiableFunction> {
 	
@@ -61,7 +62,7 @@ public class Regression<F extends DifferentiableFunction> {
 		double e = error();
 		if (error < e) {
 			setParams(params);
-			alpha /= 3;
+			alpha /= 2;
 			if (alpha == 0.0) {
 				return true;
 			}

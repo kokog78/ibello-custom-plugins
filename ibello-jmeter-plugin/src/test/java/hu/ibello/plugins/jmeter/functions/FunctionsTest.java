@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.Test;
 
+import hu.ibello.regression.functions.Functions;
+
 public class FunctionsTest {
 
 	@Test

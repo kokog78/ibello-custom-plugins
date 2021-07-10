@@ -1,7 +1,7 @@
 package hu.ibello.plugins.jmeter.functions;
 
-import static hu.ibello.plugins.jmeter.functions.Functions.ln;
-import static hu.ibello.plugins.jmeter.functions.Functions.pow;
+import static hu.ibello.regression.functions.Functions.ln;
+import static hu.ibello.regression.functions.Functions.pow;
 
 class Parameter5LogisticFunctionB extends Parameter5LogisticFunction0 {
 
