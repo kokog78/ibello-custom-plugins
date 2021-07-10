@@ -1,0 +1,40 @@
+{
+    "title": "Ibello Jmeter Tasks",
+    "description": "Tasks for load and stress testing with Apache Jmeter.",
+    "tasks": [
+        {
+            "title": "Calculate APDEX",
+            "description": "Calculate Application Performance Index from the results.",
+            "name": "jmeter.apdex",
+            "parameters": [
+                {
+                    "title": "Result file",
+                    "description": "Jmeter result file",
+                    "name": "jmeter.file.result",
+                    "kind": "FILE"
+                },
+                {
+                    "title": "File encoding",
+                    "description": "Jmeter result file's encoding'",
+                    "name": "jmeter.file.encoding",
+                    "value": "UTF-8",
+                    "kind": "STRING"
+                },
+                {
+                    "title": "Satisfaction threshold",
+                    "description": "Jmeter result file",
+                    "name": "jmeter.threshold.satisfied",
+                    "value": "3000",
+                    "kind": "INTEGER"
+                },
+                {
+                    "title": "Toleration threshold",
+                    "description": "Jmeter result file",
+                    "name": "jmeter.threshold.tolerated",
+                    "value": "12000",
+                    "kind": "INTEGER"
+                }
+            ]
+        }
+    ]
+}
