@@ -6,14 +6,17 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import hu.ibello.functions.DataPoint;
+import hu.ibello.functions.ExponentialApdexFunction;
+import hu.ibello.functions.ExponentialApdexInverseFunction;
 import hu.ibello.functions.Function;
-import hu.ibello.functions.Logistic5Function;
-import hu.ibello.functions.Logistic5InverseFunction;
+import hu.ibello.functions.LogisticApdexFunction;
+import hu.ibello.graph.Graph;
 import hu.ibello.plugins.IbelloTaskRunner;
 import hu.ibello.plugins.PluginException;
 import hu.ibello.plugins.PluginInitializer;
@@ -63,8 +66,14 @@ public class JmeterPlugin implements IbelloTaskRunner {
 					}
 				}
 				printApdex(labels, apdexMap);
-				Function apdexFunction = getInverseApdexFunction(apdexMap);
-				printRequestLimits(apdexFunction, 0.8, 0.5);
+				List<DataPoint> points = getApdexData(apdexMap);
+				Function apdexFunction = getApdexFunction(points);
+				Function inverseFunction = getInverseApdexFunction(apdexFunction);
+				printRequestLimits(inverseFunction, 0.8, 0.5);
+				// graph
+				Graph graph = tools.graph().createGraph("APDEX");
+				graph.add(apdexFunction.toString(), apdexFunction);
+				graph.add("Measured", points);
 			}
 		}
 		return false;
@@ -100,29 +109,24 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		print("Overload limit :%d requests", count2);
 	}
 	
-	private Logistic5Function getApdexFunction(Map<String, ApdexData> apdexMap) {
+	private List<DataPoint> getApdexData(Map<String, ApdexData> apdexMap) {
 		List<DataPoint> points = new ArrayList<>();
 		for (ApdexData apdex : apdexMap.values()) {
 			points.add(point(apdex.count(), apdex.getApdex()));
 		}
-		Logistic5Function function = new Logistic5Function();
-		function.setY0(0);
-		function.setY1(1);
-		function.setB(60);
-		function.setC(10);
-		function.setM(0.01);
+		Collections.sort(points, (p1, p2) -> Double.compare(p1.getX(), p2.getX()));
+		return points;
+	}
+	
+	private Function getApdexFunction(List<DataPoint> points) {
+		Function function = getExponentialApdexFunction(points);
 		tools.regression().getNonLinearRegression(function, points).run();
 		return function;
 	}
 	
-	private Function getInverseApdexFunction(Map<String, ApdexData> apdexMap) {
-		Logistic5Function function = getApdexFunction(apdexMap);
-		Logistic5InverseFunction inverse = new Logistic5InverseFunction();
-		inverse.setY0(function.getY0());
-		inverse.setY1(function.getY1());
-		inverse.setB(function.getB());
-		inverse.setC(function.getC());
-		inverse.setM(function.getM());
+	private Function getInverseApdexFunction(Function function) {
+		Function inverse = new ExponentialApdexInverseFunction();
+		inverse.setParameters(function.getParameters());
 		return inverse;
 	}
 
@@ -143,6 +147,45 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			throw new PluginException("Cannot load Jmeter result file", ex);
 		}
 		return results;
+	}
+	
+	private ExponentialApdexFunction getExponentialApdexFunction(List<DataPoint> points) {
+		ExponentialApdexFunction function = new ExponentialApdexFunction();
+		double x0 = Double.NaN;
+		double yLimit = 1 / Math.E;
+		double x1 = Double.NaN;
+		double y1 = Double.NaN;
+		double cPluszX0 = Double.NaN;
+		for (DataPoint point : points) {
+			if (!Double.isNaN(point.getX()) && !Double.isNaN(point.getY())) {
+				if (point.getY() == 1.0) {
+					x0 = point.getX();
+				}
+				if (point.getY() > yLimit) {
+					x1 = point.getX();
+					y1 = point.getY();
+				} else if (Double.isNaN(cPluszX0) && !Double.isNaN(x1) && !Double.isNaN(y1)) {
+					cPluszX0 = (y1 - yLimit) * (point.getX() - x1) / (y1 - point.getY()) + x1;
+				}
+			}
+		}
+		if (Double.isNaN(x0)) {
+			x0 = 0.0;
+		}
+		if (Double.isNaN(cPluszX0)) {
+			cPluszX0 = x0 + 1;
+		}
+		function.setX0(x0);
+		function.setC(cPluszX0 - x0);
+		return function;
+	}
+	
+	private LogisticApdexFunction getLogistic3Function(List<DataPoint> points) {
+		LogisticApdexFunction function = new LogisticApdexFunction();
+		function.setB(60);
+		function.setC(10);
+		function.setM(0.01);
+		return function;
 	}
 	
 	private DataPoint point(double x, double y) {
