@@ -33,6 +33,14 @@
                     "name": "jmeter.threshold.tolerated",
                     "value": "12000",
                     "kind": "INTEGER"
+                },
+                {
+                    "title": "APDEX function",
+                    "description": "Type of the fitted APDEX function",
+                    "name": "jmeter.apdex.function",
+                    "kind": "ENUMERATION",
+                    "value": "Exponential",
+                    "values": ["Exponential", "Logistic"]
                 }
             ]
         }

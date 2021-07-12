@@ -33,11 +33,6 @@ public class LogisticApdexFunction extends Logistic5Function {
 	}
 	
 	@Override
-	public String getFormattedParameter(int paramIndex) {
-		return super.getFormattedParameter(paramIndex+2);
-	}
-	
-	@Override
 	public double[] getParameters() {
 		return new double[] {getB(), getC(), getM()};
 	}

@@ -16,11 +16,13 @@ import hu.ibello.functions.ExponentialApdexFunction;
 import hu.ibello.functions.ExponentialApdexInverseFunction;
 import hu.ibello.functions.Function;
 import hu.ibello.functions.LogisticApdexFunction;
+import hu.ibello.functions.LogisticApdexInverseFunction;
 import hu.ibello.graph.Graph;
 import hu.ibello.plugins.IbelloTaskRunner;
 import hu.ibello.plugins.PluginException;
 import hu.ibello.plugins.PluginInitializer;
 import hu.ibello.plugins.jmeter.model.ApdexData;
+import hu.ibello.plugins.jmeter.model.ApdexFunctionType;
 import hu.ibello.plugins.jmeter.model.JmeterResult;
 import hu.ibello.transform.TransformerException;
 
@@ -31,6 +33,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	private final static String PARAMETER_ENCODING = "jmeter.file.encoding";
 	private final static String PARAMETER_THRESHOLD_SATISFIED = "jmeter.threshold.satisfied";
 	private final static String PARAMETER_THRESHOLD_TOLERATED = "jmeter.threshold.tolerated";
+	private final static String PARAMETER_FUNCTION = "jmeter.apdex.function";
 	
 	private PluginInitializer tools;
 	
@@ -49,6 +52,10 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				String encoding = tools.getConfigurationValue(PARAMETER_ENCODING).toString("UTF-8");
 				int satisfactionThreshold = tools.getConfigurationValue(PARAMETER_THRESHOLD_SATISFIED).toInteger(3000);
 				int tolerationThreshold = tools.getConfigurationValue(PARAMETER_THRESHOLD_TOLERATED).toInteger(12000);
+				ApdexFunctionType type = tools.getConfigurationValue(PARAMETER_FUNCTION).toEnum(ApdexFunctionType.class);
+				if (type == null) {
+					type = ApdexFunctionType.Exponential;
+				}
 				List<JmeterResult> results = loadResults(file, encoding);
 				List<String> labels = new ArrayList<>();
 				Map<String, ApdexData> apdexMap = new HashMap<>();
@@ -67,8 +74,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				}
 				printApdex(labels, apdexMap);
 				List<DataPoint> points = getApdexData(apdexMap);
-				Function apdexFunction = getApdexFunction(points);
-				Function inverseFunction = getInverseApdexFunction(apdexFunction);
+				Function apdexFunction = getApdexFunction(points, type);
+				Function inverseFunction = getInverseApdexFunction(apdexFunction, type);
 				printRequestLimits(inverseFunction, 0.8, 0.5);
 				// graph
 				Graph graph = tools.graph().createGraph("APDEX");
@@ -118,14 +125,30 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return points;
 	}
 	
-	private Function getApdexFunction(List<DataPoint> points) {
-		Function function = getExponentialApdexFunction(points);
+	private Function getApdexFunction(List<DataPoint> points, ApdexFunctionType type) {
+		Function function;
+		switch (type) {
+		case Logistic:
+			function = getLogistic3Function(points);
+			break;
+		default:
+			function = getExponentialApdexFunction(points);
+			break;
+		}
 		tools.regression().getNonLinearRegression(function, points).run();
 		return function;
 	}
 	
-	private Function getInverseApdexFunction(Function function) {
-		Function inverse = new ExponentialApdexInverseFunction();
+	private Function getInverseApdexFunction(Function function, ApdexFunctionType type) {
+		Function inverse;
+		switch (type) {
+		case Logistic:
+			inverse = new LogisticApdexInverseFunction();
+			break;
+		default:
+			inverse = new ExponentialApdexInverseFunction();
+			break;
+		}
 		inverse.setParameters(function.getParameters());
 		return inverse;
 	}
