@@ -5,7 +5,8 @@ public class ConcurrentRequestData {
 	private int satisfiedCount;
 	private int toleratedCount;
 	private int frustratingCount;
-	private int errorCount;
+	private int successCount;
+	private long totalElapsed;
 	
 	public int getSatisfiedCount() {
 		return satisfiedCount;
@@ -19,24 +20,42 @@ public class ConcurrentRequestData {
 		return frustratingCount;
 	}
 	
-	public int getErrorCount() {
-		return errorCount;
+	public int getSuccessCount() {
+		return successCount;
+	}
+	
+	public int getFailureCount() {
+		return count() - successCount;
+	}
+	
+	public double getAverageElapsed() {
+		double result = totalElapsed;
+		result /= count();
+		return result;
 	}
 
-	public void satisfied(int count) {
-		satisfiedCount += count;
+	public void incSatisfied() {
+		satisfiedCount++;
 	}
 	
-	public void tolerated(int count) {
-		toleratedCount += count;
+	public void incTolerated() {
+		toleratedCount++;
 	}
 	
-	public void frustrated(int count) {
-		frustratingCount += count;
+	public void incFrustrated() {
+		frustratingCount++;
 	}
 	
-	public void error(int count) {
-		errorCount += count;
+	public void incSuccess() {
+		successCount++;
+	}
+	
+	public void addElapsed(long elapsed) {
+		totalElapsed += elapsed;
+	}
+	
+	public boolean hasFailure() {
+		return successCount < count();
 	}
 	
 	public double getApdex() {

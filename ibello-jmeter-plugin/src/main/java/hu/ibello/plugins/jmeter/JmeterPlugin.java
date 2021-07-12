@@ -59,48 +59,57 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				int satisfactionThreshold = tools.getConfigurationValue(PARAMETER_THRESHOLD_SATISFIED).toInteger(3000);
 				int tolerationThreshold = tools.getConfigurationValue(PARAMETER_THRESHOLD_TOLERATED).toInteger(12000);
 				ApdexFunctionType type = tools.getConfigurationValue(PARAMETER_FUNCTION).toEnum(ApdexFunctionType.class);
-				double apdexLimitSatisfied = tools.getConfigurationValue(PARAMETER_APDEX_SATISFIED).toDouble(0.8);
-				double apdexLimitTolerated = tools.getConfigurationValue(PARAMETER_APDEX_TOLERATED).toDouble(0.5);
 				if (type == null) {
 					type = ApdexFunctionType.Exponential;
 				}
+				double apdexLimitSatisfied = tools.getConfigurationValue(PARAMETER_APDEX_SATISFIED).toDouble(0.8);
+				double apdexLimitTolerated = tools.getConfigurationValue(PARAMETER_APDEX_TOLERATED).toDouble(0.5);
 				List<JmeterResult> results = loadResults(file, encoding);
 				List<String> labels = new ArrayList<>();
 				Map<String, ConcurrentRequestData> map = new HashMap<>();
+				ConcurrentRequestData total = new ConcurrentRequestData();
 				for (JmeterResult result : results) {
 					if (!labels.contains(result.getLabel())) {
 						labels.add(result.getLabel());
 					}
-					ConcurrentRequestData requestData = getApdexFor(map, result);
+					ConcurrentRequestData requestData = getRequestDataFor(map, result);
 					if (result.getElapsed() <= satisfactionThreshold) {
-						requestData.satisfied(1);
+						requestData.incSatisfied();
+						total.incSatisfied();
 					} else if (result.getElapsed() <= tolerationThreshold) {
-						requestData.tolerated(1);
+						requestData.incTolerated();
+						total.incTolerated();
 					} else {
-						requestData.frustrated(1);
+						requestData.incFrustrated();
+						total.incFrustrated();
 					}
-					if (!result.isSuccess()) {
-						requestData.error(1);
+					if (result.isSuccess()) {
+						requestData.incSuccess();
+						total.incSuccess();
 					}
+					requestData.addElapsed(result.getElapsed());
+					total.addElapsed(result.getElapsed());
 				}
 				// apdex
-				printApdex(labels, map);
+				printApdex(labels, map, total);
 				List<DataPoint> apdexPoints = getApdexData(map);
 				Function apdexFunction = getApdexFunction(apdexPoints, type);
 				Function inverseFunction = getInverseApdexFunction(apdexFunction, type);
 				printRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated);
 				// apdex graph
 				createApdexGraph(apdexPoints, apdexFunction, apdexLimitSatisfied, apdexLimitTolerated);
-				// errors
-				int errors = getErrorPointCount(map);
-				if (errors > 0) {
-					List<DataPoint> errorPoints = getErrorData(map);
-					X0Function errorFunction = getErrorFunction(errorPoints, errors);
-					double errorLimit = Math.max(getLastSuccessfulRequestCount(errorPoints), errorFunction.getX0());
-					printErrorLimit(errorLimit);
-					// error graph
-					createErrorGraph(errorPoints, errorFunction);
+				// failures
+				int failures = getFailurePointCount(map);
+				if (failures > 0) {
+					List<DataPoint> failurePoints = getFailureData(map);
+					X0Function failureFunction = getFailureFunction(failurePoints, failures);
+					double failureLimit = Math.max(getLastSuccessfulRequestCount(failurePoints), failureFunction.getX0());
+					printFailureLimit(failureLimit);
+					// failure graph
+					createFailureGraph(failurePoints, failureFunction);
 				}
+				// average response times
+				createResponseTimeGraph(map);
 			}
 		}
 		return false;
@@ -116,17 +125,29 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		graph.add("Toleration limit", new ConstantFunction(apdexLimitTolerated));
 	}
 	
-	private void createErrorGraph(List<DataPoint> points, Function errorFunction) {
-		Graph graph = tools.graph().createGraph("Response Errors");
+	private void createFailureGraph(List<DataPoint> points, Function errorFunction) {
+		Graph graph = tools.graph().createGraph("Response Failures");
 		graph.setXAxis("Number of Concurrent Requests", null, null);
-		graph.setYAxis("Error Ratio");
+		graph.setYAxis("Failure Ratio");
 		if (errorFunction != null) {
 			graph.add(errorFunction.toString(), errorFunction);
 		}
 		graph.add("Measured", points);
 	}
+	
+	private void createResponseTimeGraph(Map<String, ConcurrentRequestData> map) {
+		Graph graph = tools.graph().createGraph("Average Response Time");
+		graph.setXAxis("Number of Concurrent Requests", null, null);
+		graph.setYAxis("Response Time [ms]");
+		List<DataPoint> points = new ArrayList<>();
+		for (ConcurrentRequestData data : map.values()) {
+			points.add(point(data.count(), data.getAverageElapsed()));
+		}
+		sortData(points);
+		graph.add("Average Response Time", points);
+	}
 
-	private void printApdex(List<String> labels, Map<String, ConcurrentRequestData> map) {
+	private void printApdex(List<String> labels, Map<String, ConcurrentRequestData> map, ConcurrentRequestData totalData) {
 		int labelSize = 0;
 		for (String label : labels) {
 			labelSize = Math.max(labelSize, label.length());
@@ -134,13 +155,9 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		labelSize = Math.max(labelSize, 5);
 		tools.info("APDEX of the selected results");
 		String format = "- %" + labelSize + "s: %.3f";
-		ConcurrentRequestData totalData = new ConcurrentRequestData();
 		for (String label : labels) {
 			ConcurrentRequestData requestData = map.get(label);
 			print(format, label, requestData.getApdex());
-			totalData.satisfied(requestData.getSatisfiedCount());
-			totalData.tolerated(requestData.getToleratedCount());
-			totalData.frustrated(requestData.getFrustratingCount());
 		}
 		print(format, "Total", totalData.getApdex());
 	}
@@ -152,7 +169,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		print("Request count limit of tolerated state  : %d", count2 < 0 ? 0 : count2);
 	}
 	
-	private void printErrorLimit(double xLimit) {
+	private void printFailureLimit(double xLimit) {
 		if (!Double.isNaN(xLimit)) {
 			int limit = (int)Math.round(xLimit);
 			print("Request count limit of error-free response : %d", limit);
@@ -196,22 +213,23 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return inverse;
 	}
 	
-	private int getErrorPointCount(Map<String, ConcurrentRequestData> map) {
+	private int getFailurePointCount(Map<String, ConcurrentRequestData> map) {
 		int result = 0;
 		for (ConcurrentRequestData data : map.values()) {
-			if (data.getErrorCount() > 0) {
+			if (data.hasFailure()) {
 				result++;
 			}
 		}
 		return result;
 	}
 	
-	private List<DataPoint> getErrorData(Map<String, ConcurrentRequestData> map) {
+	private List<DataPoint> getFailureData(Map<String, ConcurrentRequestData> map) {
 		List<DataPoint> points = new ArrayList<>();
+		points.add(point(0.0, 0.0));
 		for (ConcurrentRequestData data : map.values()) {
-			double errorRatio = data.getErrorCount();
-			errorRatio /= data.count();
-			points.add(point(data.count(), errorRatio));
+			double failureRatio = data.getFailureCount();
+			failureRatio /= data.count();
+			points.add(point(data.count(), failureRatio));
 		}
 		sortData(points);
 		return points;
@@ -229,7 +247,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return result;
 	}
 
-	private X0Function getErrorFunction(List<DataPoint> points, int errors) {
+	private X0Function getFailureFunction(List<DataPoint> points, int errors) {
 		X0Function function;
 		if (errors > 1) {
 			function = getCumulativeRayleighFunction(points);
@@ -244,7 +262,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		Collections.sort(points, (p1, p2) -> Double.compare(p1.getX(), p2.getX()));
 	}
 	
-	private ConcurrentRequestData getApdexFor(Map<String, ConcurrentRequestData> apdexMap, JmeterResult result) {
+	private ConcurrentRequestData getRequestDataFor(Map<String, ConcurrentRequestData> apdexMap, JmeterResult result) {
 		ConcurrentRequestData apdex = apdexMap.get(result.getLabel());
 		if (apdex == null) {
 			apdex = new ConcurrentRequestData();
