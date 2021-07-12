@@ -1,10 +1,11 @@
 package hu.ibello.plugins.jmeter.model;
 
-public class ApdexData {
+public class ConcurrentRequestData {
 
 	private int satisfiedCount;
 	private int toleratedCount;
 	private int frustratingCount;
+	private int errorCount;
 	
 	public int getSatisfiedCount() {
 		return satisfiedCount;
@@ -17,6 +18,10 @@ public class ApdexData {
 	public int getFrustratingCount() {
 		return frustratingCount;
 	}
+	
+	public int getErrorCount() {
+		return errorCount;
+	}
 
 	public void satisfied(int count) {
 		satisfiedCount += count;
@@ -28,6 +33,10 @@ public class ApdexData {
 	
 	public void frustrated(int count) {
 		frustratingCount += count;
+	}
+	
+	public void error(int count) {
+		errorCount += count;
 	}
 	
 	public double getApdex() {

@@ -3,8 +3,8 @@
     "description": "Tasks for load and stress testing with Apache Jmeter.",
     "tasks": [
         {
-            "title": "Calculate APDEX",
-            "description": "Calculate Application Performance Index from the results.",
+            "title": "NCR Analysis",
+            "description": "Analyzes Jmeter test result file. The file should contain results from multiple measurements. Each of them used the same request multiple times, concurrently. The task groups the concurrent requests and calculates Application Performance Index (APDEX) for them. The Number of Concurrent Requests (NCR) is the base of the analysis. The \"NCR - APDEX\" and \"NCR - response time\" relationships are checked.",
             "name": "jmeter.apdex",
             "parameters": [
                 {
@@ -22,14 +22,14 @@
                 },
                 {
                     "title": "Satisfaction threshold",
-                    "description": "Jmeter result file",
+                    "description": "Below this response time users are satisfied with the result. Should be in milliseconds",
                     "name": "jmeter.threshold.satisfied",
                     "value": "3000",
                     "kind": "INTEGER"
                 },
                 {
                     "title": "Toleration threshold",
-                    "description": "Jmeter result file",
+                    "description": "Above this response time users are frustrated. Should be in milliseconds",
                     "name": "jmeter.threshold.tolerated",
                     "value": "12000",
                     "kind": "INTEGER"
@@ -44,14 +44,14 @@
                 },
                 {
                     "title": "APDEX satisfaction limit",
-                    "description": "APDEX limit where users are satisfied with the application",
+                    "description": "Above this APDEX value users are satisfied with the application",
                     "name": "jmeter.apdex.satisfied",
                     "value": "0.8",
                     "kind": "DECIMAL"
                 },
                 {
                     "title": "APDEX toleration limit",
-                    "description": "APDEX limit where users are tolerationg the application's slowness'",
+                    "description": "Below this APDEX value users won't tolerate the application's slowness",
                     "name": "jmeter.apdex.tolerated",
                     "value": "0.5",
                     "kind": "DECIMAL"

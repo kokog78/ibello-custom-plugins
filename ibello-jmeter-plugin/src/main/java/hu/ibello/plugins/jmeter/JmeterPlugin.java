@@ -12,17 +12,20 @@ import java.util.List;
 import java.util.Map;
 
 import hu.ibello.functions.ConstantFunction;
+import hu.ibello.functions.CumulativeRayleighFunction;
 import hu.ibello.functions.DataPoint;
 import hu.ibello.functions.ExponentialApdexFunction;
 import hu.ibello.functions.ExponentialApdexInverseFunction;
 import hu.ibello.functions.Function;
 import hu.ibello.functions.LogisticApdexFunction;
 import hu.ibello.functions.LogisticApdexInverseFunction;
+import hu.ibello.functions.X0Function;
+import hu.ibello.functions.ZFunction;
 import hu.ibello.graph.Graph;
 import hu.ibello.plugins.IbelloTaskRunner;
 import hu.ibello.plugins.PluginException;
 import hu.ibello.plugins.PluginInitializer;
-import hu.ibello.plugins.jmeter.model.ApdexData;
+import hu.ibello.plugins.jmeter.model.ConcurrentRequestData;
 import hu.ibello.plugins.jmeter.model.ApdexFunctionType;
 import hu.ibello.plugins.jmeter.model.JmeterResult;
 import hu.ibello.transform.TransformerException;
@@ -63,43 +66,66 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				}
 				List<JmeterResult> results = loadResults(file, encoding);
 				List<String> labels = new ArrayList<>();
-				Map<String, ApdexData> apdexMap = new HashMap<>();
+				Map<String, ConcurrentRequestData> map = new HashMap<>();
 				for (JmeterResult result : results) {
 					if (!labels.contains(result.getLabel())) {
 						labels.add(result.getLabel());
 					}
-					ApdexData apdex = getApdexFor(apdexMap, result);
+					ConcurrentRequestData requestData = getApdexFor(map, result);
 					if (result.getElapsed() <= satisfactionThreshold) {
-						apdex.satisfied(1);
+						requestData.satisfied(1);
 					} else if (result.getElapsed() <= tolerationThreshold) {
-						apdex.tolerated(1);
+						requestData.tolerated(1);
 					} else {
-						apdex.frustrated(1);
+						requestData.frustrated(1);
+					}
+					if (!result.isSuccess()) {
+						requestData.error(1);
 					}
 				}
-				printApdex(labels, apdexMap);
-				List<DataPoint> points = getApdexData(apdexMap);
-				Function apdexFunction = getApdexFunction(points, type);
+				// apdex
+				printApdex(labels, map);
+				List<DataPoint> apdexPoints = getApdexData(map);
+				Function apdexFunction = getApdexFunction(apdexPoints, type);
 				Function inverseFunction = getInverseApdexFunction(apdexFunction, type);
 				printRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated);
-				// graph
-				Graph graph = tools.graph().createGraph("APDEX");
-				graph.setXAxis("Number of requests", null, null);
-				graph.setYAxis("APDEX");
-				graph.add(apdexFunction.toString(), apdexFunction);
-				graph.add("Measured", points);
-				graph.add("Satistaction limit", new ConstantFunction(apdexLimitSatisfied));
-				graph.add("Toleration limit", new ConstantFunction(apdexLimitTolerated));
+				// apdex graph
+				createApdexGraph(apdexPoints, apdexFunction, apdexLimitSatisfied, apdexLimitTolerated);
+				// errors
+				int errors = getErrorPointCount(map);
+				if (errors > 0) {
+					List<DataPoint> errorPoints = getErrorData(map);
+					X0Function errorFunction = getErrorFunction(errorPoints, errors);
+					printErrorLimit(errorFunction.getX0());
+					// error graph
+					createErrorGraph(errorPoints, errorFunction);
+				}
 			}
 		}
 		return false;
 	}
 
-	@Override
-	public void shutdown() throws PluginException {
+	private void createApdexGraph(List<DataPoint> points, Function apdexFunction, double apdexLimitSatisfied, double apdexLimitTolerated) {
+		Graph graph = tools.graph().createGraph("Application Performance Index");
+		graph.setXAxis("Number of Concurrent Requests", null, null);
+		graph.setYAxis("Application Performance Index");
+		graph.add(apdexFunction.toString(), apdexFunction);
+		graph.add("Measured", points);
+		graph.add("Satistaction limit", new ConstantFunction(apdexLimitSatisfied));
+		graph.add("Toleration limit", new ConstantFunction(apdexLimitTolerated));
 	}
 	
-	private void printApdex(List<String> labels, Map<String, ApdexData> apdexMap) {
+	private void createErrorGraph(List<DataPoint> points, Function errorFunction) {
+		Graph graph = tools.graph().createGraph("Response Errors");
+		graph.setXAxis("Number of Concurrent Requests", null, null);
+		graph.setYAxis("Error Ratio");
+		if (errorFunction != null) {
+			graph.add(errorFunction.toString(), errorFunction);
+		}
+		graph.add("Measured", points);
+	}
+
+	private void printApdex(List<String> labels, Map<String, ConcurrentRequestData> map) {
 		int labelSize = 0;
 		for (String label : labels) {
 			labelSize = Math.max(labelSize, label.length());
@@ -107,30 +133,37 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		labelSize = Math.max(labelSize, 5);
 		tools.info("APDEX of the selected results");
 		String format = "- %" + labelSize + "s: %.3f";
-		ApdexData totalApdex = new ApdexData();
+		ConcurrentRequestData totalData = new ConcurrentRequestData();
 		for (String label : labels) {
-			ApdexData apdex = apdexMap.get(label);
-			print(format, label, apdex.getApdex());
-			totalApdex.satisfied(apdex.getSatisfiedCount());
-			totalApdex.tolerated(apdex.getToleratedCount());
-			totalApdex.frustrated(apdex.getFrustratingCount());
+			ConcurrentRequestData requestData = map.get(label);
+			print(format, label, requestData.getApdex());
+			totalData.satisfied(requestData.getSatisfiedCount());
+			totalData.tolerated(requestData.getToleratedCount());
+			totalData.frustrated(requestData.getFrustratingCount());
 		}
-		print(format, "Total", totalApdex.getApdex());
+		print(format, "Total", totalData.getApdex());
 	}
 	
 	private void printRequestLimits(Function apdexFunction, double limit1, double limit2) {
 		long count1 = Math.round(apdexFunction.value(limit1));
 		long count2 = Math.round(apdexFunction.value(limit2));
-		print("Request count limit for satisfied users : %d", count1);
-		print("Request count limit of tolerated state  : %d", count2);
+		print("Request count limit for satisfied users : %d", count1 < 0 ? 0 : count1);
+		print("Request count limit of tolerated state  : %d", count2 < 0 ? 0 : count2);
 	}
 	
-	private List<DataPoint> getApdexData(Map<String, ApdexData> apdexMap) {
-		List<DataPoint> points = new ArrayList<>();
-		for (ApdexData apdex : apdexMap.values()) {
-			points.add(point(apdex.count(), apdex.getApdex()));
+	private void printErrorLimit(double xLimit) {
+		if (!Double.isNaN(xLimit)) {
+			int limit = (int)Math.round(xLimit);
+			print("Request count limit of error-free response : %d", limit);
 		}
-		Collections.sort(points, (p1, p2) -> Double.compare(p1.getX(), p2.getX()));
+	}
+	
+	private List<DataPoint> getApdexData(Map<String, ConcurrentRequestData> map) {
+		List<DataPoint> points = new ArrayList<>();
+		for (ConcurrentRequestData data : map.values()) {
+			points.add(point(data.count(), data.getApdex()));
+		}
+		sortData(points);
 		return points;
 	}
 	
@@ -161,11 +194,47 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		inverse.setParameters(function.getParameters());
 		return inverse;
 	}
+	
+	private int getErrorPointCount(Map<String, ConcurrentRequestData> map) {
+		int result = 0;
+		for (ConcurrentRequestData data : map.values()) {
+			if (data.getErrorCount() > 0) {
+				result++;
+			}
+		}
+		return result;
+	}
+	
+	private List<DataPoint> getErrorData(Map<String, ConcurrentRequestData> map) {
+		List<DataPoint> points = new ArrayList<>();
+		for (ConcurrentRequestData data : map.values()) {
+			double errorRatio = data.getErrorCount();
+			errorRatio /= data.count();
+			points.add(point(data.count(), errorRatio));
+		}
+		sortData(points);
+		return points;
+	}
 
-	private ApdexData getApdexFor(Map<String, ApdexData> apdexMap, JmeterResult result) {
-		ApdexData apdex = apdexMap.get(result.getLabel());
+	private X0Function getErrorFunction(List<DataPoint> points, int errors) {
+		X0Function function;
+		if (errors > 1) {
+			function = getCumulativeRayleighFunction(points);
+		} else {
+			function = getZFunction(points);
+		}
+		tools.regression().getNonLinearRegression(function, points).run();
+		return function;
+	}
+	
+	private void sortData(List<DataPoint> points) {
+		Collections.sort(points, (p1, p2) -> Double.compare(p1.getX(), p2.getX()));
+	}
+	
+	private ConcurrentRequestData getApdexFor(Map<String, ConcurrentRequestData> apdexMap, JmeterResult result) {
+		ConcurrentRequestData apdex = apdexMap.get(result.getLabel());
 		if (apdex == null) {
-			apdex = new ApdexData();
+			apdex = new ConcurrentRequestData();
 			apdexMap.put(result.getLabel(), apdex);
 		}
 		return apdex;
@@ -220,6 +289,58 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return function;
 	}
 	
+	private CumulativeRayleighFunction getCumulativeRayleighFunction(List<DataPoint> points) {
+		CumulativeRayleighFunction function = new CumulativeRayleighFunction();
+		double x0 = 0;
+		DataPoint lastPoint = null;
+		double sigma = Double.NaN;
+		for (DataPoint point : points) {
+			if (point.getY() == 0.0) {
+				x0 = point.getX();
+			} else if (lastPoint == null) {
+				lastPoint = point;
+			} else if (point.getY() < 1.0) {
+				lastPoint = point;
+			}
+		}
+		if (lastPoint != null) {
+			double delta = 1 - lastPoint.getY();
+			if (delta == 0.0) {
+				delta = 0.01;
+			}
+			sigma = (lastPoint.getX() - x0) / Math.sqrt(- 2 * Math.log(delta));
+		} else {
+			sigma = 50;
+		}
+		function.setX0(x0);
+		function.setSigma(sigma);
+		return function;
+	}
+	
+	private ZFunction getZFunction(List<DataPoint> points) {
+		ZFunction function = new ZFunction();
+		double x0 = 0;
+		double x1 = Double.NaN;
+		DataPoint lastPoint = null;
+		for (DataPoint point : points) {
+			if (point.getY() == 0.0) {
+				x0 = point.getX();
+			} else if (lastPoint == null) {
+				lastPoint = point;
+			} else if (point.getY() < 1.0) {
+				lastPoint = point;
+			}
+		}
+		if (lastPoint != null) {
+			x1 = x0 + (lastPoint.getX() - x0) / lastPoint.getY();
+		} else {
+			x1 = 1.0;
+		}
+		function.setX0(x0);
+		function.setX1(x1);
+		return function;
+	}
+	
 	private DataPoint point(double x, double y) {
 		return new DataPoint() {
 			@Override
@@ -239,4 +360,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		tools.info(msg);
 	}
 
+	@Override
+	public void shutdown() throws PluginException {
+	}
+	
 }
