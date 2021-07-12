@@ -96,7 +96,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				if (errors > 0) {
 					List<DataPoint> errorPoints = getErrorData(map);
 					X0Function errorFunction = getErrorFunction(errorPoints, errors);
-					printErrorLimit(errorFunction.getX0());
+					double errorLimit = Math.max(getLastSuccessfulRequestCount(errorPoints), errorFunction.getX0());
+					printErrorLimit(errorLimit);
 					// error graph
 					createErrorGraph(errorPoints, errorFunction);
 				}
@@ -214,6 +215,18 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		}
 		sortData(points);
 		return points;
+	}
+	
+	private double getLastSuccessfulRequestCount(List<DataPoint> points) {
+		double result = 0;
+		for (DataPoint point : points) {
+			if (point.getY() == 0.0) {
+				result = point.getX();
+			} else {
+				break;
+			}
+		}
+		return result;
 	}
 
 	private X0Function getErrorFunction(List<DataPoint> points, int errors) {
