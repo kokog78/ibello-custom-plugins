@@ -41,6 +41,20 @@
                     "kind": "ENUMERATION",
                     "value": "Exponential",
                     "values": ["Exponential", "Logistic"]
+                },
+                {
+                    "title": "APDEX satisfaction limit",
+                    "description": "APDEX limit where users are satisfied with the application",
+                    "name": "jmeter.apdex.satisfied",
+                    "value": "0.8",
+                    "kind": "DECIMAL"
+                },
+                {
+                    "title": "APDEX toleration limit",
+                    "description": "APDEX limit where users are tolerationg the application's slowness'",
+                    "name": "jmeter.apdex.tolerated",
+                    "value": "0.5",
+                    "kind": "DECIMAL"
                 }
             ]
         }

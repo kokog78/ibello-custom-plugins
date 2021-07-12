@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import hu.ibello.functions.ConstantFunction;
 import hu.ibello.functions.DataPoint;
 import hu.ibello.functions.ExponentialApdexFunction;
 import hu.ibello.functions.ExponentialApdexInverseFunction;
@@ -34,6 +35,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	private final static String PARAMETER_THRESHOLD_SATISFIED = "jmeter.threshold.satisfied";
 	private final static String PARAMETER_THRESHOLD_TOLERATED = "jmeter.threshold.tolerated";
 	private final static String PARAMETER_FUNCTION = "jmeter.apdex.function";
+	private final static String PARAMETER_APDEX_SATISFIED = "jmeter.apdex.satisfied";
+	private final static String PARAMETER_APDEX_TOLERATED = "jmeter.apdex.tolerated";
 	
 	private PluginInitializer tools;
 	
@@ -53,6 +56,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				int satisfactionThreshold = tools.getConfigurationValue(PARAMETER_THRESHOLD_SATISFIED).toInteger(3000);
 				int tolerationThreshold = tools.getConfigurationValue(PARAMETER_THRESHOLD_TOLERATED).toInteger(12000);
 				ApdexFunctionType type = tools.getConfigurationValue(PARAMETER_FUNCTION).toEnum(ApdexFunctionType.class);
+				double apdexLimitSatisfied = tools.getConfigurationValue(PARAMETER_APDEX_SATISFIED).toDouble(0.8);
+				double apdexLimitTolerated = tools.getConfigurationValue(PARAMETER_APDEX_TOLERATED).toDouble(0.5);
 				if (type == null) {
 					type = ApdexFunctionType.Exponential;
 				}
@@ -76,11 +81,15 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				List<DataPoint> points = getApdexData(apdexMap);
 				Function apdexFunction = getApdexFunction(points, type);
 				Function inverseFunction = getInverseApdexFunction(apdexFunction, type);
-				printRequestLimits(inverseFunction, 0.8, 0.5);
+				printRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated);
 				// graph
 				Graph graph = tools.graph().createGraph("APDEX");
+				graph.setXAxis("Number of requests", null, null);
+				graph.setYAxis("APDEX");
 				graph.add(apdexFunction.toString(), apdexFunction);
 				graph.add("Measured", points);
+				graph.add("Satistaction limit", new ConstantFunction(apdexLimitSatisfied));
+				graph.add("Toleration limit", new ConstantFunction(apdexLimitTolerated));
 			}
 		}
 		return false;
@@ -112,8 +121,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	private void printRequestLimits(Function apdexFunction, double limit1, double limit2) {
 		long count1 = Math.round(apdexFunction.value(limit1));
 		long count2 = Math.round(apdexFunction.value(limit2));
-		print("Normal limit   :%d requests", count1);
-		print("Overload limit :%d requests", count2);
+		print("Request count limit for satisfied users : %d", count1);
+		print("Request count limit of tolerated state  : %d", count2);
 	}
 	
 	private List<DataPoint> getApdexData(Map<String, ApdexData> apdexMap) {
