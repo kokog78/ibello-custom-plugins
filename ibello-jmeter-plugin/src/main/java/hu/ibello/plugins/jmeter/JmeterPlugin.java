@@ -58,8 +58,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				tools.error("File should be specified.");
 			} else {
 				String encoding = tools.getConfigurationValue(PARAMETER_ENCODING).toString("UTF-8");
-				int satisfactionThreshold = tools.getConfigurationValue(PARAMETER_THRESHOLD_SATISFIED).toInteger(3000);
-				int tolerationThreshold = tools.getConfigurationValue(PARAMETER_THRESHOLD_TOLERATED).toInteger(12000);
+				int satisfiedThresholds = tools.getConfigurationValue(PARAMETER_THRESHOLD_SATISFIED).toInteger(3000);
+				int toleratedThresholds = tools.getConfigurationValue(PARAMETER_THRESHOLD_TOLERATED).toInteger(12000);
 				ApdexFunctionType type = tools.getConfigurationValue(PARAMETER_FUNCTION).toEnum(ApdexFunctionType.class);
 				if (type == null) {
 					type = ApdexFunctionType.Exponential;
@@ -68,34 +68,29 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				double apdexLimitTolerated = tools.getConfigurationValue(PARAMETER_APDEX_TOLERATED).toDouble(0.5);
 				// process results
 				List<JmeterResult> results = loadResults(file, encoding);
-				Map<String, ConcurrentRequestData> map = new HashMap<>();
-				ConcurrentRequestData total = new ConcurrentRequestData(satisfactionThreshold, tolerationThreshold);
-				for (JmeterResult result : results) {
-					ConcurrentRequestData requestData = getRequestDataFor(map, result, satisfactionThreshold, tolerationThreshold);
-					requestData.register(result);
-					total.register(result);
-				}
+				ConcurrentRequestData total = new ConcurrentRequestData(satisfiedThresholds, toleratedThresholds);
+				List<ConcurrentRequestData> stats = getSortedStats(results, total, satisfiedThresholds, toleratedThresholds);
 				// apdex
-				List<DataPoint> apdexPoints = getApdexData(map);
+				List<DataPoint> apdexPoints = getApdexData(stats);
 				Function apdexFunction = getApdexFunction(apdexPoints, type);
 				Function inverseFunction = getInverseApdexFunction(apdexFunction, type);
 				createApdexGraph(apdexPoints, apdexFunction, apdexLimitSatisfied, apdexLimitTolerated);
 				// failures
 				double failureLimit = Double.NaN;
-				int failures = getFailurePointCount(map);
+				int failures = getFailurePointCount(stats);
 				if (failures > 0) {
-					List<DataPoint> failurePoints = getFailureData(map);
+					List<DataPoint> failurePoints = getFailureData(stats);
 					X0Function failureFunction = getFailureFunction(failurePoints, failures);
 					failureLimit = Math.max(getLastSuccessfulRequestCount(failurePoints), failureFunction.getX0());
 					// failure graph
 					createFailureGraph(failurePoints, failureFunction);
 				}
 				// summary table
-				printSummary(map, total);
+				printSummary(stats, total);
 				// request limits
 				printRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failureLimit);
 				// average response times
-				createResponseTimeGraph(map);
+				createResponseTimeGraph(stats);
 			}
 		}
 		return false;
@@ -121,28 +116,25 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		graph.add("Measured", points);
 	}
 	
-	private void createResponseTimeGraph(Map<String, ConcurrentRequestData> map) {
+	private void createResponseTimeGraph(List<ConcurrentRequestData> stats) {
 		Graph graph = tools.graph().createGraph("Average Response Time");
 		graph.setXAxis("Number of Concurrent Requests", null, null);
 		graph.setYAxis("Response Time [ms]");
 		List<DataPoint> points = new ArrayList<>();
-		for (ConcurrentRequestData data : map.values()) {
+		for (ConcurrentRequestData data : stats) {
 			points.add(point(data.count(), data.getAverageElapsed()));
 		}
-		sortData(points);
 		graph.add("Average Response Time", points);
 	}
 
-	private void printSummary(Map<String, ConcurrentRequestData> map, ConcurrentRequestData totalData) {
-		List<ConcurrentRequestData> list = new ArrayList<>(map.values());
-		Collections.sort(list, (data1, data2) -> data1.count() - data2.count());
+	private void printSummary(List<ConcurrentRequestData> stats, ConcurrentRequestData totalData) {
 		Table table = tools.table().createTable("Statistics by Number of Concurrent Requests");
 		table.getHeader().addCell("NCR");
 		table.getHeader().addCell("Failures");
 		table.getHeader().addCell("Failures %");
 		table.getHeader().addCell("Avg Response Time [ms]");
 		table.getHeader().addCell("APDEX");
-		for (ConcurrentRequestData data : list) {
+		for (ConcurrentRequestData data : stats) {
 			TableRow row = table.addRow();
 			row.addCell(data.count());
 			row.addCell(data.getFailureCount());
@@ -181,12 +173,11 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		}
 	}
 	
-	private List<DataPoint> getApdexData(Map<String, ConcurrentRequestData> map) {
+	private List<DataPoint> getApdexData(List<ConcurrentRequestData> stats) {
 		List<DataPoint> points = new ArrayList<>();
-		for (ConcurrentRequestData data : map.values()) {
+		for (ConcurrentRequestData data : stats) {
 			points.add(point(data.count(), data.getApdex()));
 		}
-		sortData(points);
 		return points;
 	}
 	
@@ -218,9 +209,9 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return inverse;
 	}
 	
-	private int getFailurePointCount(Map<String, ConcurrentRequestData> map) {
+	private int getFailurePointCount(List<ConcurrentRequestData> stats) {
 		int result = 0;
-		for (ConcurrentRequestData data : map.values()) {
+		for (ConcurrentRequestData data : stats) {
 			if (data.hasFailure()) {
 				result++;
 			}
@@ -228,13 +219,12 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return result;
 	}
 	
-	private List<DataPoint> getFailureData(Map<String, ConcurrentRequestData> map) {
+	private List<DataPoint> getFailureData(List<ConcurrentRequestData> stats) {
 		List<DataPoint> points = new ArrayList<>();
 		points.add(point(0.0, 0.0));
-		for (ConcurrentRequestData data : map.values()) {
+		for (ConcurrentRequestData data : stats) {
 			points.add(point(data.count(), data.getFailureRatio()));
 		}
-		sortData(points);
 		return points;
 	}
 	
@@ -259,10 +249,6 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		}
 		tools.regression().getNonLinearRegression(function, points).run();
 		return function;
-	}
-	
-	private void sortData(List<DataPoint> points) {
-		Collections.sort(points, (p1, p2) -> Double.compare(p1.getX(), p2.getX()));
 	}
 	
 	private ConcurrentRequestData getRequestDataFor(Map<String, ConcurrentRequestData> apdexMap, JmeterResult result, int satisfiedThreshold, int toleratedThreshold) {
@@ -391,6 +377,18 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	
 	private double roundApdex(double apdex) {
 		return Math.round(apdex * 1000) / 1000.0;
+	}
+	
+	private List<ConcurrentRequestData> getSortedStats(List<JmeterResult> results, ConcurrentRequestData total, int satisfiedThresholds, int toleratedThresholds) {
+		Map<String, ConcurrentRequestData> map = new HashMap<>();
+		for (JmeterResult result : results) {
+			ConcurrentRequestData requestData = getRequestDataFor(map, result, satisfiedThresholds, toleratedThresholds);
+			requestData.register(result);
+			total.register(result);
+		}
+		List<ConcurrentRequestData> list = new ArrayList<>(map.values());
+		Collections.sort(list, (data1, data2) -> data1.count() - data2.count());
+		return list;
 	}
 	
 	private void print(String format, Object ... attrs) {
