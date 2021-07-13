@@ -117,14 +117,23 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	}
 	
 	private void createResponseTimeGraph(List<ConcurrentRequestData> stats) {
-		Graph graph = tools.graph().createGraph("Average Response Time");
+		Graph graph = tools.graph().createGraph("Response Time");
 		graph.setXAxis("Number of Concurrent Requests", null, null);
 		graph.setYAxis("Response Time [ms]");
-		List<DataPoint> points = new ArrayList<>();
+		List<DataPoint> min = new ArrayList<>();
+		List<DataPoint> max = new ArrayList<>();
+		List<DataPoint> avg = new ArrayList<>();
+		List<DataPoint> pct90 = new ArrayList<>();
 		for (ConcurrentRequestData data : stats) {
-			points.add(point(data.count(), data.getAverageElapsed()));
+			min.add(point(data.count(), data.getMinElapsed()));
+			max.add(point(data.count(), data.getMaxElapsed()));
+			avg.add(point(data.count(), data.getAverageElapsed()));
+			pct90.add(point(data.count(), data.get90PercentElapsed()));
 		}
-		graph.add("Average Response Time", points);
+		graph.add("Minimum", min);
+		graph.add("Average", avg);
+		graph.add("90% Percentile", pct90);
+		graph.add("Maximum", max);
 	}
 
 	private void printSummary(List<ConcurrentRequestData> stats, ConcurrentRequestData totalData) {
@@ -132,24 +141,30 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		table.getHeader().addCell("NCR");
 		table.getHeader().addCell("Failures");
 		table.getHeader().addCell("Failures %");
+		table.getHeader().addCell("Min Response Time [ms]");
 		table.getHeader().addCell("Avg Response Time [ms]");
 		table.getHeader().addCell("90% Percentile [ms]");
+		table.getHeader().addCell("Max Response Time [ms]");
 		table.getHeader().addCell("APDEX");
 		for (ConcurrentRequestData data : stats) {
 			TableRow row = table.addRow();
 			row.addCell(data.count());
 			row.addCell(data.getFailureCount());
 			row.addCell(Math.round(100 * data.getFailureRatio()));
+			row.addCell(data.getMinElapsed());
 			row.addCell(Math.round(data.getAverageElapsed()));
 			row.addCell(Math.round(data.get90PercentElapsed()));
+			row.addCell(data.getMaxElapsed());
 			row.addCell(roundApdex(data.getApdex()));
 		}
 		TableRow row = table.addRow();
 		row.addCell("Summary");
 		row.addCell(totalData.getFailureCount());
 		row.addCell(Math.round(100 * totalData.getFailureRatio()));
+		row.addCell(totalData.getMinElapsed());
 		row.addCell(Math.round(totalData.getAverageElapsed()));
 		row.addCell(Math.round(totalData.get90PercentElapsed()));
+		row.addCell(totalData.getMaxElapsed());
 		row.addCell(roundApdex(totalData.getApdex()));
 	}
 	

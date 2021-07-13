@@ -14,6 +14,8 @@ public class ConcurrentRequestData {
 	private int frustratingCount;
 	private int successCount;
 	private long totalElapsed;
+	private long minElapsed = -1;
+	private long maxElapsed = 0;
 	private List<Long> elapsedList = new ArrayList<>();
 	
 	public ConcurrentRequestData(int satisfiedThresholds, int toleratedThresholds) {
@@ -35,6 +37,12 @@ public class ConcurrentRequestData {
 		}
 		totalElapsed += result.getElapsed();
 		elapsedList.add(result.getElapsed());
+		if (minElapsed < 0 || result.getElapsed() < minElapsed) {
+			minElapsed = result.getElapsed();
+		}
+		if (result.getElapsed() > maxElapsed) {
+			maxElapsed = result.getElapsed();
+		}
 	}
 
 	public int getSatisfiedCount() {
@@ -55,6 +63,14 @@ public class ConcurrentRequestData {
 	
 	public int getFailureCount() {
 		return count() - successCount;
+	}
+	
+	public long getMinElapsed() {
+		return minElapsed < 0 ? 0 : minElapsed;
+	}
+	
+	public long getMaxElapsed() {
+		return maxElapsed;
 	}
 	
 	public double getAverageElapsed() {
