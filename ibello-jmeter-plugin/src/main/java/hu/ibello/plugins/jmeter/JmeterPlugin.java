@@ -343,9 +343,39 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	
 	private LogisticApdexFunction getLogistic3Function(List<DataPoint> points) {
 		LogisticApdexFunction function = new LogisticApdexFunction();
-		function.setB(60);
-		function.setC(10);
-		function.setM(0.01);
+		double x0 = Double.NaN;
+		double m = 0.01;
+		double b = Double.NaN;
+		for (DataPoint point : points) {
+			if (point.getY() == 1.0) {
+				x0 = point.getX();
+			}
+		}
+		if (Double.isNaN(x0)) {
+			x0 = 1.0;
+			b = 60;
+		} else {
+			double sumB = 0.0;
+			int countB = 0;
+			for (DataPoint point : points) {
+				if (point.getY() < 1.0) {
+					double d = Math.log(1 / Math.pow(point.getY(), 1/m) - 1);
+					double divisor = Math.log(point.getX()/x0);
+					d /= divisor;
+					sumB += d;
+					countB++;
+				}
+			}
+			if (countB > 0) {
+				b = sumB / countB;
+			}
+			if (Double.isNaN(b)) {
+				b = 60;
+			}
+		}
+		function.setB(b);
+		function.setC(x0);
+		function.setM(m);
 		return function;
 	}
 	
