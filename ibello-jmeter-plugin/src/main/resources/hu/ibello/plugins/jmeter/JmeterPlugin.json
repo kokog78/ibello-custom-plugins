@@ -5,20 +5,13 @@
         {
             "title": "NCR Analysis",
             "description": "Analyzes Jmeter test result file. The file should contain results from multiple measurements. Each of them used the same request multiple times, concurrently. The task groups the concurrent requests and calculates Application Performance Index (APDEX) for them. The Number of Concurrent Requests (NCR) is the base of the analysis. The \"NCR - APDEX\" and \"NCR - response time\" relationships are checked.",
-            "name": "jmeter.apdex",
+            "name": "jmeter.ncr",
             "parameters": [
                 {
                     "title": "Result file",
                     "description": "Jmeter result file",
                     "name": "jmeter.file.result",
                     "kind": "FILE"
-                },
-                {
-                    "title": "File encoding",
-                    "description": "Jmeter result file's encoding'",
-                    "name": "jmeter.file.encoding",
-                    "value": "UTF-8",
-                    "kind": "STRING"
                 },
                 {
                     "title": "Satisfaction threshold",
@@ -28,11 +21,31 @@
                     "kind": "INTEGER"
                 },
                 {
+                    "title": "File encoding",
+                    "description": "Jmeter result file's encoding'",
+                    "name": "jmeter.file.encoding",
+                    "value": "UTF-8",
+                    "kind": "STRING"
+                },
+                {
                     "title": "Toleration threshold",
                     "description": "Above this response time users are frustrated. Should be in milliseconds",
                     "name": "jmeter.threshold.tolerated",
                     "value": "12000",
                     "kind": "INTEGER"
+                },
+                {
+                    "title": "Pattern for label",
+                    "description": "Regular expression. Only keep measures where the label matches this pattern",
+                    "name": "jmeter.pattern.keep",
+                    "kind": "STRING"
+                },
+                {
+                    "title": "APDEX satisfaction limit",
+                    "description": "Above this APDEX value users are satisfied with the application",
+                    "name": "jmeter.apdex.satisfied",
+                    "value": "0.8",
+                    "kind": "DECIMAL"
                 },
                 {
                     "title": "APDEX function",
@@ -41,13 +54,6 @@
                     "kind": "ENUMERATION",
                     "value": "Exponential",
                     "values": ["Linear", "Exponential", "Logistic"]
-                },
-                {
-                    "title": "APDEX satisfaction limit",
-                    "description": "Above this APDEX value users are satisfied with the application",
-                    "name": "jmeter.apdex.satisfied",
-                    "value": "0.8",
-                    "kind": "DECIMAL"
                 },
                 {
                     "title": "APDEX toleration limit",

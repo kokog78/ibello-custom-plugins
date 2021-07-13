@@ -10,6 +10,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import hu.ibello.functions.ConstantFunction;
 import hu.ibello.functions.CumulativeRayleighFunction;
@@ -36,11 +38,12 @@ import hu.ibello.transform.TransformerException;
 
 public class JmeterPlugin implements IbelloTaskRunner {
 
-	private final static String TASK_APDEX = "jmeter.apdex";
+	private final static String TASK_NCR = "jmeter.ncr";
 	private final static String PARAMETER_RESULT_FILE = "jmeter.file.result";
 	private final static String PARAMETER_ENCODING = "jmeter.file.encoding";
 	private final static String PARAMETER_THRESHOLD_SATISFIED = "jmeter.threshold.satisfied";
 	private final static String PARAMETER_THRESHOLD_TOLERATED = "jmeter.threshold.tolerated";
+	private final static String PARAMETER_PATTERN_KEEP = "jmeter.pattern.keep";
 	private final static String PARAMETER_FUNCTION = "jmeter.apdex.function";
 	private final static String PARAMETER_APDEX_SATISFIED = "jmeter.apdex.satisfied";
 	private final static String PARAMETER_APDEX_TOLERATED = "jmeter.apdex.tolerated";
@@ -54,12 +57,13 @@ public class JmeterPlugin implements IbelloTaskRunner {
 
 	@Override
 	public boolean runTask(String name) throws PluginException {
-		if (name.equals(TASK_APDEX)) {
+		if (name.equals(TASK_NCR)) {
 			File file = tools.getConfigurationValue(PARAMETER_RESULT_FILE).toFile();
 			if (file == null) {
 				tools.error("File should be specified.");
 			} else {
 				String encoding = tools.getConfigurationValue(PARAMETER_ENCODING).toString("UTF-8");
+				String keepPattern = tools.getConfigurationValue(PARAMETER_PATTERN_KEEP).toString("");
 				int satisfiedThresholds = tools.getConfigurationValue(PARAMETER_THRESHOLD_SATISFIED).toInteger(3000);
 				int toleratedThresholds = tools.getConfigurationValue(PARAMETER_THRESHOLD_TOLERATED).toInteger(12000);
 				ApdexFunctionType type = tools.getConfigurationValue(PARAMETER_FUNCTION).toEnum(ApdexFunctionType.class);
@@ -69,7 +73,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				double apdexLimitSatisfied = tools.getConfigurationValue(PARAMETER_APDEX_SATISFIED).toDouble(0.8);
 				double apdexLimitTolerated = tools.getConfigurationValue(PARAMETER_APDEX_TOLERATED).toDouble(0.5);
 				// process results
-				List<JmeterResult> results = loadResults(file, encoding);
+				List<JmeterResult> results = loadResults(file, encoding, keepPattern);
 				ConcurrentRequestData total = new ConcurrentRequestData(satisfiedThresholds, toleratedThresholds);
 				List<ConcurrentRequestData> stats = getSortedStats(results, total, satisfiedThresholds, toleratedThresholds);
 				// apdex
@@ -304,12 +308,18 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return apdex;
 	}
 
-	private List<JmeterResult> loadResults(File file, String encoding) throws PluginException {
+	private List<JmeterResult> loadResults(File file, String encoding, String keepPattern) throws PluginException {
 		List<JmeterResult> results;
 		try (Reader reader = new InputStreamReader(new FileInputStream(file), encoding)) {
 			results = tools.csv().fromCsv(reader, JmeterResult.class);
 		} catch (IOException|TransformerException ex) {
 			throw new PluginException("Cannot load Jmeter result file", ex);
+		}
+		if (keepPattern != null && !keepPattern.isEmpty()) {
+			Pattern pattern = Pattern.compile(keepPattern);
+			results = results.stream()
+					.filter(r -> pattern.matcher(r.getLabel()).find())
+					.collect(Collectors.toList());
 		}
 		return results;
 	}
