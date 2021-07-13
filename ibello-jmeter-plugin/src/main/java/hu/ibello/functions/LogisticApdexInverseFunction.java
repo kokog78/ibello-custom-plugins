@@ -1,5 +1,6 @@
 package hu.ibello.functions;
 
+@Deprecated
 public class LogisticApdexInverseFunction extends LogisticApdexFunction {
 
 	@Override

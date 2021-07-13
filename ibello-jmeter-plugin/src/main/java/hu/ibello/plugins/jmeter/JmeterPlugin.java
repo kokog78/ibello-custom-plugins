@@ -17,11 +17,12 @@ import hu.ibello.functions.DataPoint;
 import hu.ibello.functions.ExponentialApdexFunction;
 import hu.ibello.functions.ExponentialApdexInverseFunction;
 import hu.ibello.functions.Function;
-import hu.ibello.functions.LogisticApdexFunction;
-import hu.ibello.functions.LogisticApdexInverseFunction;
+import hu.ibello.functions.Logistic4Function;
+import hu.ibello.functions.Logistic4InverseFunction;
 import hu.ibello.functions.MirrorZFunction;
 import hu.ibello.functions.X0Function;
 import hu.ibello.functions.ZFunction;
+import hu.ibello.functions.ZInverseFunction;
 import hu.ibello.graph.Graph;
 import hu.ibello.plugins.IbelloTaskRunner;
 import hu.ibello.plugins.PluginException;
@@ -216,7 +217,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			function = getZFunction(points);
 			break;
 		case Logistic:
-			function = getLogistic3Function(points);
+			function = getLogisticApdexFunction(points);
 			break;
 		default:
 			function = getExponentialApdexFunction(points);
@@ -229,8 +230,11 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	private Function getInverseApdexFunction(Function function, ApdexFunctionType type) {
 		Function inverse;
 		switch (type) {
+		case Linear:
+			inverse = new ZInverseFunction();
+			break;
 		case Logistic:
-			inverse = new LogisticApdexInverseFunction();
+			inverse = new Logistic4InverseFunction();
 			break;
 		default:
 			inverse = new ExponentialApdexInverseFunction();
@@ -341,41 +345,35 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return function;
 	}
 	
-	private LogisticApdexFunction getLogistic3Function(List<DataPoint> points) {
-		LogisticApdexFunction function = new LogisticApdexFunction();
-		double x0 = Double.NaN;
-		double m = 0.01;
-		double b = Double.NaN;
+	private Function getLogisticApdexFunction(List<DataPoint> points) {
+		Logistic4Function function = new Logistic4Function();
+		double y1 = 0.0;
 		for (DataPoint point : points) {
-			if (point.getY() == 1.0) {
-				x0 = point.getX();
-			}
+			y1 = Math.max(y1, point.getY());
 		}
-		if (Double.isNaN(x0)) {
-			x0 = 1.0;
-			b = 60;
-		} else {
-			double sumB = 0.0;
-			int countB = 0;
-			for (DataPoint point : points) {
-				if (point.getY() < 1.0) {
-					double d = Math.log(1 / Math.pow(point.getY(), 1/m) - 1);
-					double divisor = Math.log(point.getX()/x0);
-					d /= divisor;
-					sumB += d;
-					countB++;
+		double b = 2;
+		double sumC = 0.0;
+		int countC = 0;
+		for (DataPoint point : points) {
+			if (point.getY() < y1) {
+				double c = Math.pow(y1 / point.getY(), 1/b) - 1.0;
+				if (c > 0.0) {
+					c = point.getX() / c;
+					sumC += c;
+					countC++;
 				}
 			}
-			if (countB > 0) {
-				b = sumB / countB;
-			}
-			if (Double.isNaN(b)) {
-				b = 60;
-			}
 		}
+		double c;
+		if (countC > 0) {
+			c = sumC / countC;
+		} else {
+			c = 20;
+		}
+		function.setY0(0);
+		function.setY1(y1);
 		function.setB(b);
-		function.setC(x0);
-		function.setM(m);
+		function.setC(c);
 		return function;
 	}
 	
