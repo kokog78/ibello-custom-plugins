@@ -35,8 +35,8 @@
                     "kind": "INTEGER"
                 },
                 {
-                    "title": "Pattern for label",
-                    "description": "Regular expression. Only keep measures where the label matches this pattern",
+                    "title": "Positive pattern for label",
+                    "description": "Only keep measures where the label matches this regular expression",
                     "name": "jmeter.pattern.keep",
                     "kind": "STRING"
                 },
@@ -48,12 +48,10 @@
                     "kind": "DECIMAL"
                 },
                 {
-                    "title": "APDEX function",
-                    "description": "Type of the fitted APDEX function",
-                    "name": "jmeter.apdex.function",
-                    "kind": "ENUMERATION",
-                    "value": "Exponential",
-                    "values": ["Linear", "Exponential", "Logistic"]
+                    "title": "Negative pattern for label",
+                    "description": "Skip measures where the label matches this regular expression",
+                    "name": "jmeter.pattern.skip",
+                    "kind": "STRING"
                 },
                 {
                     "title": "APDEX toleration limit",
@@ -61,6 +59,14 @@
                     "name": "jmeter.apdex.tolerated",
                     "value": "0.5",
                     "kind": "DECIMAL"
+                },
+                {
+                    "title": "APDEX function",
+                    "description": "Type of the fitted APDEX function",
+                    "name": "jmeter.apdex.function",
+                    "kind": "ENUMERATION",
+                    "value": "Exponential",
+                    "values": ["Linear", "Exponential", "Logistic"]
                 }
             ]
         }
