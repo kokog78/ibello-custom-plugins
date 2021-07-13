@@ -1,5 +1,9 @@
 package hu.ibello.plugins.jmeter.model;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public class ConcurrentRequestData {
 	
 	private final int satisfiedThresholds;
@@ -10,6 +14,7 @@ public class ConcurrentRequestData {
 	private int frustratingCount;
 	private int successCount;
 	private long totalElapsed;
+	private List<Long> elapsedList = new ArrayList<>();
 	
 	public ConcurrentRequestData(int satisfiedThresholds, int toleratedThresholds) {
 		super();
@@ -29,6 +34,7 @@ public class ConcurrentRequestData {
 			successCount++;
 		}
 		totalElapsed += result.getElapsed();
+		elapsedList.add(result.getElapsed());
 	}
 
 	public int getSatisfiedCount() {
@@ -56,6 +62,25 @@ public class ConcurrentRequestData {
 		result /= count();
 		return result;
 	}
+	
+	public double get90PercentElapsed() {
+		int count = count();
+		if (count == 0) {
+			return 0;
+		}
+		Collections.sort(elapsedList);
+		double or = 0.9 * (count+1);
+		int loRank = (int)Math.floor(or);
+		int hiRank = (int)Math.ceil(or);
+		if (hiRank > count) {
+			hiRank = count;
+		}
+		long loScore = elapsedList.get(loRank-1);
+		long hiScore = elapsedList.get(hiRank-1);
+		long diff = hiScore - loScore;
+		double mod = or - loRank;
+		return loScore + mod * diff;
+	}
 
 	public boolean hasFailure() {
 		return successCount < count();
@@ -76,6 +101,6 @@ public class ConcurrentRequestData {
 	}
 	
 	public int count() {
-		return satisfiedCount + toleratedCount + frustratingCount;
+		return elapsedList.size();
 	}
 }

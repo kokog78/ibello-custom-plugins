@@ -133,6 +133,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		table.getHeader().addCell("Failures");
 		table.getHeader().addCell("Failures %");
 		table.getHeader().addCell("Avg Response Time [ms]");
+		table.getHeader().addCell("90% Percentile [ms]");
 		table.getHeader().addCell("APDEX");
 		for (ConcurrentRequestData data : stats) {
 			TableRow row = table.addRow();
@@ -140,6 +141,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			row.addCell(data.getFailureCount());
 			row.addCell(Math.round(100 * data.getFailureRatio()));
 			row.addCell(Math.round(data.getAverageElapsed()));
+			row.addCell(Math.round(data.get90PercentElapsed()));
 			row.addCell(roundApdex(data.getApdex()));
 		}
 		TableRow row = table.addRow();
@@ -147,6 +149,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		row.addCell(totalData.getFailureCount());
 		row.addCell(Math.round(100 * totalData.getFailureRatio()));
 		row.addCell(Math.round(totalData.getAverageElapsed()));
+		row.addCell(Math.round(totalData.get90PercentElapsed()));
 		row.addCell(roundApdex(totalData.getApdex()));
 	}
 	
