@@ -19,6 +19,7 @@ import hu.ibello.functions.ExponentialApdexInverseFunction;
 import hu.ibello.functions.Function;
 import hu.ibello.functions.LogisticApdexFunction;
 import hu.ibello.functions.LogisticApdexInverseFunction;
+import hu.ibello.functions.MirrorZFunction;
 import hu.ibello.functions.X0Function;
 import hu.ibello.functions.ZFunction;
 import hu.ibello.graph.Graph;
@@ -71,10 +72,13 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				ConcurrentRequestData total = new ConcurrentRequestData(satisfiedThresholds, toleratedThresholds);
 				List<ConcurrentRequestData> stats = getSortedStats(results, total, satisfiedThresholds, toleratedThresholds);
 				// apdex
-				List<DataPoint> apdexPoints = getApdexData(stats);
-				Function apdexFunction = getApdexFunction(apdexPoints, type);
-				Function inverseFunction = getInverseApdexFunction(apdexFunction, type);
-				createApdexGraph(apdexPoints, apdexFunction, apdexLimitSatisfied, apdexLimitTolerated);
+				Function inverseFunction = null;
+				if (hasNon1Apdex(stats)) {
+					List<DataPoint> apdexPoints = getApdexData(stats);
+					Function apdexFunction = getApdexFunction(apdexPoints, type);
+					inverseFunction = getInverseApdexFunction(apdexFunction, type);
+					createApdexGraph(apdexPoints, apdexFunction, apdexLimitSatisfied, apdexLimitTolerated);
+				}
 				// failures
 				double failureLimit = Double.NaN;
 				int failures = getFailurePointCount(stats);
@@ -169,25 +173,31 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	}
 	
 	private void printRequestLimits(Function apdexFunction, double limit1, double limit2, double errorLimit) {
-		long count1 = Math.round(apdexFunction.value(limit1));
-		count1 = Math.max(0, count1);
-		long count2 = Math.round(apdexFunction.value(limit2));
-		count2 = Math.max(0, count2);
-		Table table = tools.table().createTable("Concurrent Request Limits");
-		table.getHeader().addCell("Limit");
-		table.getHeader().addCell("NCR");
-		TableRow row = table.addRow();
-		row.addCell("Users are satisfied until");
-		row.addCell(count1);
-		row = table.addRow();
-		row.addCell("Users are tolerating slowness until");
-		row.addCell(count2);
-		if (!Double.isNaN(errorLimit)) {
-			long count3 = Math.round(errorLimit);
-			count3 = Math.max(0, count3);
-			row = table.addRow();
-			row.addCell("Responses are error-free until");
-			row.addCell(count3);
+		boolean hasApdexLimits = apdexFunction != null;
+		boolean hasErrorLimit = !Double.isNaN(errorLimit);
+		if (hasApdexLimits || hasErrorLimit) {
+			Table table = tools.table().createTable("Concurrent Request Limits");
+			table.getHeader().addCell("Limit");
+			table.getHeader().addCell("NCR");
+			if (hasApdexLimits) {
+				long count1 = Math.round(apdexFunction.value(limit1));
+				count1 = Math.max(0, count1);
+				long count2 = Math.round(apdexFunction.value(limit2));
+				count2 = Math.max(0, count2);
+				TableRow row = table.addRow();
+				row.addCell("Users are satisfied until");
+				row.addCell(count1);
+				row = table.addRow();
+				row.addCell("Users are tolerating slowness until");
+				row.addCell(count2);
+			}
+			if (hasErrorLimit) {
+				long count3 = Math.round(errorLimit);
+				count3 = Math.max(0, count3);
+				TableRow row = table.addRow();
+				row.addCell("Responses are error-free until");
+				row.addCell(count3);
+			}
 		}
 	}
 	
@@ -202,6 +212,9 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	private Function getApdexFunction(List<DataPoint> points, ApdexFunctionType type) {
 		Function function;
 		switch (type) {
+		case Linear:
+			function = getZFunction(points);
+			break;
 		case Logistic:
 			function = getLogistic3Function(points);
 			break;
@@ -237,6 +250,15 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return result;
 	}
 	
+	private boolean hasNon1Apdex(List<ConcurrentRequestData> stats) {
+		for (ConcurrentRequestData data : stats) {
+			if (data.getApdex() < 1.0) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	private List<DataPoint> getFailureData(List<ConcurrentRequestData> stats) {
 		List<DataPoint> points = new ArrayList<>();
 		points.add(point(0.0, 0.0));
@@ -263,7 +285,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		if (errors > 1) {
 			function = getCumulativeRayleighFunction(points);
 		} else {
-			function = getZFunction(points);
+			function = getMirrorZFunction(points);
 		}
 		tools.regression().getNonLinearRegression(function, points).run();
 		return function;
@@ -355,8 +377,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return function;
 	}
 	
-	private ZFunction getZFunction(List<DataPoint> points) {
-		ZFunction function = new ZFunction();
+	private MirrorZFunction getMirrorZFunction(List<DataPoint> points) {
+		MirrorZFunction function = new MirrorZFunction();
 		double x0 = 0;
 		double x1 = Double.NaN;
 		DataPoint lastPoint = null;
@@ -371,6 +393,30 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		}
 		if (lastPoint != null) {
 			x1 = x0 + (lastPoint.getX() - x0) / lastPoint.getY();
+		} else {
+			x1 = 1.0;
+		}
+		function.setX0(x0);
+		function.setX1(x1);
+		return function;
+	}
+	
+	private ZFunction getZFunction(List<DataPoint> points) {
+		ZFunction function = new ZFunction();
+		double x0 = 0;
+		double x1 = Double.NaN;
+		DataPoint lastPoint = null;
+		for (DataPoint point : points) {
+			if (point.getY() >= 1.0) {
+				x0 = point.getX();
+			} else if (lastPoint == null) {
+				lastPoint = point;
+			} else if (point.getY() > 0.0) {
+				lastPoint = point;
+			}
+		}
+		if (lastPoint != null) {
+			x1 = x0 + (lastPoint.getX() - x0) / (1.0 - lastPoint.getY());
 		} else {
 			x1 = 1.0;
 		}
@@ -407,11 +453,6 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		List<ConcurrentRequestData> list = new ArrayList<>(map.values());
 		Collections.sort(list, (data1, data2) -> data1.count() - data2.count());
 		return list;
-	}
-	
-	private void print(String format, Object ... attrs) {
-		String msg = String.format(format, attrs);
-		tools.info(msg);
 	}
 
 	@Override

@@ -40,7 +40,7 @@
                     "name": "jmeter.apdex.function",
                     "kind": "ENUMERATION",
                     "value": "Exponential",
-                    "values": ["Exponential", "Logistic"]
+                    "values": ["Linear", "Exponential", "Logistic"]
                 },
                 {
                     "title": "APDEX satisfaction limit",
