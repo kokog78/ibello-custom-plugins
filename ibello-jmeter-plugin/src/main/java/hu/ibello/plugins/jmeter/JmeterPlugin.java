@@ -25,9 +25,11 @@ import hu.ibello.graph.Graph;
 import hu.ibello.plugins.IbelloTaskRunner;
 import hu.ibello.plugins.PluginException;
 import hu.ibello.plugins.PluginInitializer;
-import hu.ibello.plugins.jmeter.model.ConcurrentRequestData;
 import hu.ibello.plugins.jmeter.model.ApdexFunctionType;
+import hu.ibello.plugins.jmeter.model.ConcurrentRequestData;
 import hu.ibello.plugins.jmeter.model.JmeterResult;
+import hu.ibello.table.Table;
+import hu.ibello.table.TableRow;
 import hu.ibello.transform.TransformerException;
 
 public class JmeterPlugin implements IbelloTaskRunner {
@@ -91,23 +93,23 @@ public class JmeterPlugin implements IbelloTaskRunner {
 					total.addElapsed(result.getElapsed());
 				}
 				// apdex
-				printApdex(labels, map, total);
 				List<DataPoint> apdexPoints = getApdexData(map);
+				printApdex(apdexPoints, total);
 				Function apdexFunction = getApdexFunction(apdexPoints, type);
 				Function inverseFunction = getInverseApdexFunction(apdexFunction, type);
-				printRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated);
 				// apdex graph
 				createApdexGraph(apdexPoints, apdexFunction, apdexLimitSatisfied, apdexLimitTolerated);
 				// failures
+				double failureLimit = Double.NaN;
 				int failures = getFailurePointCount(map);
 				if (failures > 0) {
 					List<DataPoint> failurePoints = getFailureData(map);
 					X0Function failureFunction = getFailureFunction(failurePoints, failures);
-					double failureLimit = Math.max(getLastSuccessfulRequestCount(failurePoints), failureFunction.getX0());
-					printFailureLimit(failureLimit);
+					failureLimit = Math.max(getLastSuccessfulRequestCount(failurePoints), failureFunction.getX0());
 					// failure graph
 					createFailureGraph(failurePoints, failureFunction);
 				}
+				printRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failureLimit);
 				// average response times
 				createResponseTimeGraph(map);
 			}
@@ -147,32 +149,40 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		graph.add("Average Response Time", points);
 	}
 
-	private void printApdex(List<String> labels, Map<String, ConcurrentRequestData> map, ConcurrentRequestData totalData) {
-		int labelSize = 0;
-		for (String label : labels) {
-			labelSize = Math.max(labelSize, label.length());
+	private void printApdex(List<DataPoint> apdexPoints, ConcurrentRequestData totalData) {
+		Table table = tools.table().createTable("Application Performance Index");
+		table.getHeader().addCell("NCR");
+		table.getHeader().addCell("APDEX");
+		for (DataPoint point : apdexPoints) {
+			TableRow row = table.addRow();
+			row.addCell((int)point.getX());
+			row.addCell(roundApdex(point.getY()));
 		}
-		labelSize = Math.max(labelSize, 5);
-		tools.info("APDEX of the selected results");
-		String format = "- %" + labelSize + "s: %.3f";
-		for (String label : labels) {
-			ConcurrentRequestData requestData = map.get(label);
-			print(format, label, requestData.getApdex());
-		}
-		print(format, "Total", totalData.getApdex());
+		TableRow row = table.addRow();
+		row.addCell("Átlag");
+		row.addCell(roundApdex(totalData.getApdex()));
 	}
 	
-	private void printRequestLimits(Function apdexFunction, double limit1, double limit2) {
+	private void printRequestLimits(Function apdexFunction, double limit1, double limit2, double errorLimit) {
 		long count1 = Math.round(apdexFunction.value(limit1));
+		count1 = Math.max(0, count1);
 		long count2 = Math.round(apdexFunction.value(limit2));
-		print("Request count limit for satisfied users : %d", count1 < 0 ? 0 : count1);
-		print("Request count limit of tolerated state  : %d", count2 < 0 ? 0 : count2);
-	}
-	
-	private void printFailureLimit(double xLimit) {
-		if (!Double.isNaN(xLimit)) {
-			int limit = (int)Math.round(xLimit);
-			print("Request count limit of error-free response : %d", limit);
+		count2 = Math.max(0, count2);
+		Table table = tools.table().createTable("Concurrent Request Limits");
+		table.getHeader().addCell("Limit");
+		table.getHeader().addCell("NCR");
+		TableRow row = table.addRow();
+		row.addCell("Users are satisfied until");
+		row.addCell(count1);
+		row = table.addRow();
+		row.addCell("Users are tolerating slowness until");
+		row.addCell(count2);
+		if (!Double.isNaN(errorLimit)) {
+			long count3 = Math.round(errorLimit);
+			count3 = Math.max(0, count3);
+			row = table.addRow();
+			row.addCell("Responses are error-free until");
+			row.addCell(count3);
 		}
 	}
 	
@@ -384,6 +394,10 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				return y;
 			}
 		};
+	}
+	
+	private double roundApdex(double apdex) {
+		return Math.round(apdex * 1000) / 1000.0;
 	}
 	
 	private void print(String format, Object ... attrs) {
