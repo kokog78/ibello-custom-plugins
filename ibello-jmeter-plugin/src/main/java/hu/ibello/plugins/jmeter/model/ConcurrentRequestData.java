@@ -1,13 +1,36 @@
 package hu.ibello.plugins.jmeter.model;
 
 public class ConcurrentRequestData {
-
+	
+	private final int satisfiedThresholds;
+	private final int toleratedThresholds;
+	
 	private int satisfiedCount;
 	private int toleratedCount;
 	private int frustratingCount;
 	private int successCount;
 	private long totalElapsed;
 	
+	public ConcurrentRequestData(int satisfiedThresholds, int toleratedThresholds) {
+		super();
+		this.satisfiedThresholds = satisfiedThresholds;
+		this.toleratedThresholds = toleratedThresholds;
+	}
+	
+	public void register(JmeterResult result) {
+		if (result.getElapsed() <= satisfiedThresholds) {
+			satisfiedCount++;
+		} else if (result.getElapsed() <= toleratedThresholds) {
+			toleratedCount++;
+		} else {
+			frustratingCount++;
+		}
+		if (result.isSuccess()) {
+			successCount++;
+		}
+		totalElapsed += result.getElapsed();
+	}
+
 	public int getSatisfiedCount() {
 		return satisfiedCount;
 	}
@@ -34,26 +57,6 @@ public class ConcurrentRequestData {
 		return result;
 	}
 
-	public void incSatisfied() {
-		satisfiedCount++;
-	}
-	
-	public void incTolerated() {
-		toleratedCount++;
-	}
-	
-	public void incFrustrated() {
-		frustratingCount++;
-	}
-	
-	public void incSuccess() {
-		successCount++;
-	}
-	
-	public void addElapsed(long elapsed) {
-		totalElapsed += elapsed;
-	}
-	
 	public boolean hasFailure() {
 		return successCount < count();
 	}
@@ -64,6 +67,12 @@ public class ConcurrentRequestData {
 			result /= count();
 		}
 		return result;
+	}
+	
+	public double getFailureRatio() {
+		double failures = getFailureCount();
+		failures /= count();
+		return failures;
 	}
 	
 	public int count() {
