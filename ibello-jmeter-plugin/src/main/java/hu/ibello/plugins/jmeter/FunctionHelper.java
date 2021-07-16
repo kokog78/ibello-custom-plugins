@@ -8,7 +8,9 @@ import hu.ibello.functions.DataPoint;
 import hu.ibello.functions.ExponentialApdexFunction;
 import hu.ibello.functions.Function;
 import hu.ibello.functions.Logistic4Function;
+import hu.ibello.functions.LogisticErrorFunction;
 import hu.ibello.functions.MirrorZFunction;
+import hu.ibello.functions.X0Function;
 import hu.ibello.functions.ZFunction;
 
 public class FunctionHelper {
@@ -73,6 +75,43 @@ public class FunctionHelper {
 		function.setY1(y1);
 		function.setB(b);
 		function.setC(c);
+		return function;
+	}
+	
+	public X0Function getLogisticErrorFunction(List<DataPoint> points) {
+		LogisticErrorFunction function = new LogisticErrorFunction();
+		double y1 = 1.0;
+		double c = Double.NaN;
+		double m = 0.003;
+		for (DataPoint point : points) {
+			if (point.getY() < 0.1) {
+				c = point.getX();
+			}
+		}
+		if (Double.isNaN(c)) {
+			c = 1.0;
+		}
+		double sumB = 0.0;
+		int countB = 0;
+		for (DataPoint point : points) {
+			double ratio = y1 / point.getY();
+			double b = Math.log(Math.pow(ratio, 1/m) - 1) / Math.log(point.getX() / c);
+			if (!Double.isNaN(b) && !Double.isInfinite(b)) {
+				sumB += b;
+				countB++;
+			}
+		}
+		double b;
+		if (countB > 0) {
+			b = sumB / countB;
+		} else {
+			b = 200;
+		}
+		function.setY0(0);
+		function.setY1(y1);
+		function.setB(b);
+		function.setC(c);
+		function.setM(m);
 		return function;
 	}
 	

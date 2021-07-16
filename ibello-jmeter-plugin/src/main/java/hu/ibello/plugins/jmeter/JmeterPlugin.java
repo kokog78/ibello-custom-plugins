@@ -296,7 +296,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	private X0Function getFailureFunction(List<DataPoint> points, int errors) {
 		X0Function function;
 		if (errors > 1) {
-			function = functions.getCumulativeRayleighFunction(points);
+			function = functions.getLogisticErrorFunction(points);
 		} else {
 			function = functions.getMirrorZFunction(points);
 		}
