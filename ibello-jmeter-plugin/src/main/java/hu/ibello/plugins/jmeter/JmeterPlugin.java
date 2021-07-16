@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 
 import hu.ibello.functions.ConstantFunction;
 import hu.ibello.functions.DataPoint;
+import hu.ibello.functions.DataPointImpl;
 import hu.ibello.functions.ExponentialApdexInverseFunction;
 import hu.ibello.functions.Function;
 import hu.ibello.functions.Logistic4InverseFunction;
@@ -46,11 +47,12 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	private final static String PARAMETER_APDEX_TOLERATED = "jmeter.apdex.tolerated";
 	
 	private PluginInitializer tools;
-	private final FunctionHelper functions = new FunctionHelper();
+	private FunctionHelper functions;
 	
 	@Override
 	public void initialize(PluginInitializer initializer) throws PluginException {
 		this.tools = initializer;
+		functions = new FunctionHelper(this.tools.regression());
 	}
 
 	@Override
@@ -93,6 +95,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 					failureLimit = Math.max(getLastSuccessfulRequestCount(failurePoints), failureFunction.getX0());
 					// failure graph
 					createFailureGraph(failurePoints, failureFunction);
+					printFailureFitResults(failureFunction, failurePoints);
 				}
 				// summary table
 				printSummary(stats, total);
@@ -148,6 +151,11 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	private void printApdexFitResults(Function apdexFunction, List<DataPoint> points) {
 		double r2 = functions.calculareR2(apdexFunction, points);
 		print("APDEX function R2: %.2f", r2);
+	}
+
+	private void printFailureFitResults(Function errorFunction, List<DataPoint> points) {
+		double r2 = functions.calculareR2(errorFunction, points);
+		print("Failure function R2: %.2f", r2);
 	}
 
 	private void printSummary(List<ConcurrentRequestData> stats, ConcurrentRequestData totalData) {
@@ -336,17 +344,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	}
 	
 	private DataPoint point(double x, double y) {
-		return new DataPoint() {
-			@Override
-			public double getX() {
-				return x;
-			}
-
-			@Override
-			public double getY() {
-				return y;
-			}
-		};
+		return new DataPointImpl(x, y);
 	}
 	
 	private double roundApdex(double apdex) {

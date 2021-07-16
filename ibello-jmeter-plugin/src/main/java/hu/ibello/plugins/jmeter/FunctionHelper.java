@@ -5,15 +5,25 @@ import java.util.List;
 
 import hu.ibello.functions.CumulativeRayleighFunction;
 import hu.ibello.functions.DataPoint;
+import hu.ibello.functions.DataPointImpl;
 import hu.ibello.functions.ExponentialApdexFunction;
 import hu.ibello.functions.Function;
 import hu.ibello.functions.Logistic4Function;
 import hu.ibello.functions.LogisticErrorFunction;
 import hu.ibello.functions.MirrorZFunction;
+import hu.ibello.functions.PowerFunction;
+import hu.ibello.functions.RegressionTool;
 import hu.ibello.functions.X0Function;
 import hu.ibello.functions.ZFunction;
 
 public class FunctionHelper {
+	
+	private final RegressionTool regression;
+	
+	public FunctionHelper(RegressionTool regression) {
+		super();
+		this.regression = regression;
+	}
 
 	public ExponentialApdexFunction getExponentialApdexFunction(List<DataPoint> points) {
 		ExponentialApdexFunction function = new ExponentialApdexFunction();
@@ -52,24 +62,39 @@ public class FunctionHelper {
 		for (DataPoint point : points) {
 			y1 = Math.max(y1, point.getY());
 		}
-		double b = 2;
-		double sumC = 0.0;
-		int countC = 0;
+		List<DataPoint> internalPoints = new ArrayList<>();
 		for (DataPoint point : points) {
-			if (point.getY() < y1) {
-				double c = Math.pow(y1 / point.getY(), 1/b) - 1.0;
-				if (c > 0.0) {
-					c = point.getX() / c;
-					sumC += c;
-					countC++;
-				}
+			double y = (y1 / point.getY()) - 1;
+			if (Double.isFinite(y)) {
+				DataPoint p = new DataPointImpl(point.getX(), y);
+				internalPoints.add(p);
 			}
 		}
-		double c;
-		if (countC > 0) {
-			c = sumC / countC;
-		} else {
-			c = 20;
+		PowerFunction power = new PowerFunction(1, 2);
+		regression.getNonLinearRegression(power, internalPoints).run();
+		double b = power.getB();
+		double c = 1 / Math.pow(power.getA(), 1/b);
+		if (Double.isNaN(b)) {
+			b = 2;
+		}
+		if (Double.isNaN(c)) {
+			double sumC = 0.0;
+			int countC = 0;
+			for (DataPoint point : points) {
+				if (point.getY() < y1) {
+					double c1 = Math.pow(y1 / point.getY(), 1/b) - 1.0;
+					if (c1 > 0.0) {
+						c1 = point.getX() / c1;
+						sumC += c1;
+						countC++;
+					}
+				}
+			}
+			if (countC > 0) {
+				c = sumC / countC;
+			} else {
+				c = 20;
+			}
 		}
 		function.setY0(0);
 		function.setY1(y1);
