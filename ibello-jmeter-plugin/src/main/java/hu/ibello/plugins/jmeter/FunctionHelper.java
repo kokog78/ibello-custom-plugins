@@ -107,14 +107,17 @@ public class FunctionHelper {
 		LogisticErrorFunction function = new LogisticErrorFunction();
 		double y1 = 1.0;
 		double c = Double.NaN;
+		double c2 = 1.0;
 		double m = 0.003;
 		for (DataPoint point : points) {
-			if (point.getY() < 0.1) {
+			if (point.getY() == 0.0) {
 				c = point.getX();
+			} else if (point.getY() < 0.1) {
+				c2 = point.getX();
 			}
 		}
 		if (Double.isNaN(c)) {
-			c = 1.0;
+			c = c2;
 		}
 		double sumB = 0.0;
 		int countB = 0;
