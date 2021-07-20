@@ -105,7 +105,6 @@ public class FunctionHelper {
 	
 	public X0Function getLogisticErrorFunction(List<DataPoint> points) {
 		LogisticErrorFunction function = new LogisticErrorFunction();
-		double y1 = 1.0;
 		double c = Double.NaN;
 		double c2 = 1.0;
 		double m = 0.003;
@@ -122,7 +121,7 @@ public class FunctionHelper {
 		double sumB = 0.0;
 		int countB = 0;
 		for (DataPoint point : points) {
-			double ratio = y1 / point.getY();
+			double ratio = 1 / (1 - point.getY());
 			double b = Math.log(Math.pow(ratio, 1/m) - 1) / Math.log(point.getX() / c);
 			if (!Double.isNaN(b) && !Double.isInfinite(b)) {
 				sumB += b;
@@ -135,8 +134,8 @@ public class FunctionHelper {
 		} else {
 			b = 200;
 		}
-		function.setY0(0);
-		function.setY1(y1);
+		function.setY0(1);
+		function.setY1(0);
 		function.setB(b);
 		function.setC(c);
 		function.setM(m);
