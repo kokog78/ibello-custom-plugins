@@ -66,5 +66,12 @@ public class CumulativeRayleighFunction implements Function, X0Function {
 		String _sigma = getFormattedParameter(1);
 		return String.format("1 - exp(- (x - %s)^2 / (2 * %s^2))", _x0, _sigma);
 	}
+	
+	@Override
+	public Function getInverseFunction() {
+		CumulativeRayleighInverseFunction inverse = new CumulativeRayleighInverseFunction();
+		inverse.setParameters(getParameters());
+		return inverse;
+	}
 
 }

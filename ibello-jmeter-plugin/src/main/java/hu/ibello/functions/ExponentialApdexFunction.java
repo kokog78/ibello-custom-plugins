@@ -1,6 +1,6 @@
 package hu.ibello.functions;
 
-public class ExponentialApdexFunction implements Function {
+public class ExponentialApdexFunction implements Function, InversableFunction {
 
 	protected double x0;
 	protected double c;
@@ -64,6 +64,13 @@ public class ExponentialApdexFunction implements Function {
 		String _x0 = getFormattedParameter(0);
 		String _c = getFormattedParameter(1);
 		return String.format("exp(- (x - %s) / %s)", _x0, _c);
+	}
+	
+	@Override
+	public Function getInverseFunction() {
+		ExponentialApdexInverseFunction inverse = new ExponentialApdexInverseFunction();
+		inverse.setParameters(getParameters());
+		return inverse;
 	}
 
 }

@@ -88,11 +88,14 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				}
 				// failures
 				double failureLimit = Double.NaN;
+				double crashLimit = Double.NaN;
 				int failures = getFailurePointCount(stats);
 				if (failures > 0) {
 					List<DataPoint> failurePoints = getFailureData(stats);
 					X0Function failureFunction = getFailureFunction(failurePoints, failures);
 					failureLimit = Math.max(getLastSuccessfulRequestCount(failurePoints), failureFunction.getX0());
+					Function failureInverseFunction = failureFunction.getInverseFunction();
+					crashLimit = failureInverseFunction.value(1.0);
 					// failure graph
 					createFailureGraph(failurePoints, failureFunction);
 					printFailureFitResults(failureFunction, failurePoints);
@@ -100,7 +103,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				// summary table
 				printSummary(stats, total);
 				// request limits
-				printRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failureLimit);
+				printRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failureLimit, crashLimit);
 				// average response times
 				createResponseTimeGraph(stats);
 			}
@@ -190,10 +193,11 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		row.addCell(roundApdex(totalData.getApdex()));
 	}
 	
-	private void printRequestLimits(Function apdexFunction, double limit1, double limit2, double errorLimit) {
+	private void printRequestLimits(Function apdexFunction, double limit1, double limit2, double errorLimit, double crashLimit) {
 		boolean hasApdexLimits = apdexFunction != null;
 		boolean hasErrorLimit = !Double.isNaN(errorLimit);
-		if (hasApdexLimits || hasErrorLimit) {
+		boolean hasCrashLimit = !Double.isNaN(crashLimit);
+		if (hasApdexLimits || hasErrorLimit || hasCrashLimit) {
 			Table table = tools.table().createTable("Concurrent Request Limits");
 			table.getHeader().addCell("Limit");
 			table.getHeader().addCell("NCR");
@@ -215,6 +219,13 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				TableRow row = table.addRow();
 				row.addCell("Responses are error-free until");
 				row.addCell(count3);
+			}
+			if (hasCrashLimit) {
+				long count4 = Math.round(crashLimit);
+				count4 = Math.max(0, count4);
+				TableRow row = table.addRow();
+				row.addCell("Application crashes after");
+				row.addCell(count4);
 			}
 		}
 	}

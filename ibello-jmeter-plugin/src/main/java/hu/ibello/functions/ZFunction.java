@@ -68,4 +68,11 @@ public class ZFunction implements Function, X0Function {
 		String _x1 = getFormattedParameter(1);
 		return String.format("1 - (x - %s) / (%s - %s)", _x0, _x1, _x0);
 	}
+	
+	@Override
+	public Function getInverseFunction() {
+		ZInverseFunction inverse = new ZInverseFunction();
+		inverse.setParameters(getParameters());
+		return inverse;
+	}
 }
