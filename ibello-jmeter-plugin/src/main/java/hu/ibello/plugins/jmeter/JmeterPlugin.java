@@ -5,8 +5,10 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +79,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				List<JmeterResult> results = loadResults(file, encoding, keepPattern, skipPattern);
 				ConcurrentRequestData total = new ConcurrentRequestData(satisfiedThresholds, toleratedThresholds);
 				List<ConcurrentRequestData> stats = getSortedStats(results, total, satisfiedThresholds, toleratedThresholds);
+				// test run info
+				printDates(results);
 				// apdex
 				Function inverseFunction = null;
 				if (hasNon1Apdex(stats)) {
@@ -95,7 +99,12 @@ public class JmeterPlugin implements IbelloTaskRunner {
 					X0Function failureFunction = getFailureFunction(failurePoints, failures);
 					failureLimit = Math.max(getLastSuccessfulRequestCount(failurePoints), failureFunction.getX0());
 					Function failureInverseFunction = failureFunction.getInverseFunction();
-					crashLimit = failureInverseFunction.value(1.0);
+					crashLimit = getFirstFullFailureRequestCount(failurePoints);
+					if (Double.isNaN(crashLimit)) {
+						crashLimit = failureInverseFunction.value(1.0);
+					} else {
+						crashLimit = Math.min(crashLimit, failureInverseFunction.value(1.0));
+					}
 					// failure graph
 					createFailureGraph(failurePoints, failureFunction);
 					printFailureFitResults(failureFunction, failurePoints);
@@ -151,6 +160,29 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		graph.add("Maximum", max);
 	}
 	
+	private void printDates(List<JmeterResult> results) {
+		Date min = null;
+		Date max = null;
+		for (JmeterResult result : results) {
+			Date startDate = result.getStartDate();
+			if (min == null || min.after(startDate)) {
+				min = startDate;
+			}
+			Date endDate = result.getEndDate();
+			if (max == null || min.before(endDate)) {
+				max = endDate;
+			}
+		}
+		SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		String smin = fmt.format(min);
+		String smax = fmt.format(max);
+		String day = smin.substring(0, 10);
+		if (smax.startsWith(day)) {
+			smax = smax.substring(11);
+		}
+		print("Test run time: %s - %s", smin, smax);
+	}
+
 	private void printApdexFitResults(Function apdexFunction, List<DataPoint> points) {
 		double r2 = functions.calculareR2(apdexFunction, points);
 		print("APDEX function R2: %.2f", r2);
@@ -310,6 +342,15 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			}
 		}
 		return result;
+	}
+	
+	private double getFirstFullFailureRequestCount(List<DataPoint> points) {
+		for (DataPoint point : points) {
+			if (point.getY() >= 1.0) {
+				return point.getX();
+			}
+		}
+		return Double.NaN;
 	}
 
 	private X0Function getFailureFunction(List<DataPoint> points, int errors) {

@@ -1,5 +1,7 @@
 package hu.ibello.plugins.jmeter.model;
 
+import java.util.Date;
+
 public class JmeterResult {
 
 	private long timeStamp;
@@ -13,6 +15,14 @@ public class JmeterResult {
 	
 	public void setTimeStamp(long timeStamp) {
 		this.timeStamp = timeStamp;
+	}
+	
+	public Date getStartDate() {
+		return new Date(timeStamp);
+	}
+	
+	public Date getEndDate() {
+		return new Date(timeStamp + elapsed);
 	}
 	
 	public long getElapsed() {
