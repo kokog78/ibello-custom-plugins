@@ -113,6 +113,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				printSummary(stats, total);
 				// request limits
 				printRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failureLimit, crashLimit);
+				// throughput table
+				printThroughput(stats, total);
 				// average response times
 				createResponseTimeGraph(stats);
 			}
@@ -215,7 +217,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			row.addCell(roundApdex(data.getApdex()));
 		}
 		TableRow row = table.addRow();
-		row.addCell("Summary");
+		row.addCell("Total");
 		row.addCell(totalData.getFailureCount());
 		row.addCell(Math.round(100 * totalData.getFailureRatio()));
 		row.addCell(totalData.getMinElapsed());
@@ -260,6 +262,26 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				row.addCell(count4);
 			}
 		}
+	}
+	
+	private void printThroughput(List<ConcurrentRequestData> stats, ConcurrentRequestData totalData) {
+		Table table = tools.table().createTable("Throughput");
+		table.getHeader().addCell("NCR");
+		table.getHeader().addCell("Transactions/s");
+		table.getHeader().addCell("Sent KB/s");
+		table.getHeader().addCell("Received KB/s");
+		for (ConcurrentRequestData data : stats) {
+			TableRow row = table.addRow();
+			row.addCell(data.count());
+			row.addCell(roundThroughput(data.getThroughput()));
+			row.addCell(roundThroughput(data.getNetworkSent()));
+			row.addCell(roundThroughput(data.getNetworkReceived()));
+		}
+		TableRow row = table.addRow();
+		row.addCell("Total");
+		row.addCell(roundThroughput(totalData.getThroughput()));
+		row.addCell(roundThroughput(totalData.getNetworkSent()));
+		row.addCell(roundThroughput(totalData.getNetworkReceived()));
 	}
 	
 	private List<DataPoint> getApdexData(List<ConcurrentRequestData> stats) {
@@ -401,6 +423,10 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	
 	private double roundApdex(double apdex) {
 		return Math.round(apdex * 1000) / 1000.0;
+	}
+	
+	private double roundThroughput(double value) {
+		return Math.round(value * 100) / 100.0;
 	}
 	
 	private List<ConcurrentRequestData> getSortedStats(List<JmeterResult> results, ConcurrentRequestData total, int satisfiedThresholds, int toleratedThresholds) {

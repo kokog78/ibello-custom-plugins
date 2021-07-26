@@ -2,6 +2,7 @@ package hu.ibello.plugins.jmeter.model;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 public class ConcurrentRequestData {
@@ -16,6 +17,10 @@ public class ConcurrentRequestData {
 	private long totalElapsed;
 	private long minElapsed = -1;
 	private long maxElapsed = 0;
+	private long startTimeMs = -1;
+	private long endTimeMs = 0;
+	private long receivedBytes = 0;
+	private long sentBytes = 0;
 	private List<Long> elapsedList = new ArrayList<>();
 	
 	public ConcurrentRequestData(int satisfiedThresholds, int toleratedThresholds) {
@@ -43,6 +48,15 @@ public class ConcurrentRequestData {
 		if (result.getElapsed() > maxElapsed) {
 			maxElapsed = result.getElapsed();
 		}
+		if (startTimeMs < 0 || startTimeMs > result.getTimeStamp()) {
+			startTimeMs = result.getTimeStamp();
+		}
+		long endTime = result.getEndTime();
+		if (endTimeMs < endTime) {
+			endTimeMs = endTime;
+		}
+		receivedBytes += result.getBytes();
+		sentBytes += result.getSentBytes();
 	}
 
 	public int getSatisfiedCount() {
@@ -97,9 +111,40 @@ public class ConcurrentRequestData {
 		double mod = or - loRank;
 		return loScore + mod * diff;
 	}
-
+	
+	public long getStartTimeMs() {
+		return startTimeMs;
+	}
+	
+	public long getEndTimeMs() {
+		return endTimeMs;
+	}
+	
+	public Date getStartDate() {
+		return new Date(startTimeMs);
+	}
+	
+	public Date getEndDate() {
+		return new Date(endTimeMs);
+	}
+	
+	public long getDurationMs() {
+		return endTimeMs - startTimeMs;
+	}
+	
+	public long getDurationS() {
+		return Math.round(getDurationMs() / 1000.0);
+	}
+	
 	public boolean hasFailure() {
 		return successCount < count();
+	}
+	
+	public double getThroughput() {
+		double result = count();
+		result /= getDurationMs();
+		result *= 1000.0;
+		return result;
 	}
 	
 	public double getApdex() {
@@ -118,5 +163,19 @@ public class ConcurrentRequestData {
 	
 	public int count() {
 		return elapsedList.size();
+	}
+	
+	public double getNetworkSent() {
+		double result = sentBytes;
+		result /= getDurationMs();
+		result *= 1000.0 / 1024.0;
+		return result;
+	}
+
+	public double getNetworkReceived() {
+		double result = receivedBytes;
+		result /= getDurationMs();
+		result *= 1000.0 / 1024.0;
+		return result;
 	}
 }

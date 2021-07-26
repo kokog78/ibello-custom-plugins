@@ -8,6 +8,9 @@ public class JmeterResult {
 	private long elapsed;
 	private String label;
 	private boolean success;
+	private long bytes;
+	private long sentBytes;
+	private long Connect;
 	
 	public long getTimeStamp() {
 		return timeStamp;
@@ -17,12 +20,16 @@ public class JmeterResult {
 		this.timeStamp = timeStamp;
 	}
 	
+	public long getEndTime() {
+		return timeStamp + elapsed;
+	}
+	
 	public Date getStartDate() {
 		return new Date(timeStamp);
 	}
 	
 	public Date getEndDate() {
-		return new Date(timeStamp + elapsed);
+		return new Date(getEndTime());
 	}
 	
 	public long getElapsed() {
@@ -47,6 +54,30 @@ public class JmeterResult {
 	
 	public void setSuccess(boolean success) {
 		this.success = success;
+	}
+	
+	public long getBytes() {
+		return bytes;
+	}
+	
+	public void setBytes(long bytes) {
+		this.bytes = bytes;
+	}
+	
+	public long getSentBytes() {
+		return sentBytes;
+	}
+	
+	public void setSentBytes(long sentBytes) {
+		this.sentBytes = sentBytes;
+	}
+	
+	public long getConnect() {
+		return Connect;
+	}
+	
+	public void setConnect(long connect) {
+		Connect = connect;
 	}
 	
 }
