@@ -10,7 +10,7 @@ class FailureData {
 	}
 	
 	public void updateFailureLimit(double failureLimit) {
-		if (Double.isNaN(this.failureLimit) || failureLimit < this.failureLimit) {
+		if (Double.isNaN(this.failureLimit) || failureLimit > this.failureLimit) {
 			this.failureLimit = failureLimit;
 		}
 	}
