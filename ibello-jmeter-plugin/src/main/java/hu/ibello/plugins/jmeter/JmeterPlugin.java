@@ -110,16 +110,30 @@ public class JmeterPlugin implements IbelloTaskRunner {
 					printFailureFitResults(failureFunction, failurePoints);
 				}
 				// summary table
-				printSummary(stats, total);
+				tableSummary(stats, total);
 				// request limits
-				printRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failureLimit, crashLimit);
-				// throughput table
-				printThroughput(stats, total);
+				tableRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failureLimit, crashLimit);
+				// throughput
+				processThroughput(stats, total, failureLimit);
 				// average response times
 				createResponseTimeGraph(stats);
 			}
 		}
 		return false;
+	}
+
+	private void processThroughput(List<ConcurrentRequestData> stats, ConcurrentRequestData total, double failureLimit) {
+		tableThroughput(stats, total);
+		List<DataPoint> throughputData = getThroughputData(stats);
+		Function throughputFunction = getThroughputFunction(throughputData);
+		createThroughputGraph(throughputData, throughputFunction);
+		List<DataPoint> networkSentData = getNetworkSentData(stats);
+		Function networkSentFunction = getThroughputFunction(networkSentData);
+		List<DataPoint> networkReceivedData = getNetworkReceivedData(stats);
+		Function networkReceivedFunction = getThroughputFunction(networkReceivedData);
+		createNetworkTrafficGraph(networkSentData, networkSentFunction, networkReceivedData, networkReceivedFunction);
+		printThroughputFitResults(throughputFunction, throughputData);
+		printMaxThroughput(throughputFunction, networkSentFunction, networkReceivedFunction, failureLimit);
 	}
 
 	private void createApdexGraph(List<DataPoint> points, Function apdexFunction, double apdexLimitSatisfied, double apdexLimitTolerated) {
@@ -140,6 +154,30 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			graph.add(errorFunction.toString(), errorFunction);
 		}
 		graph.add("Measured", points);
+	}
+	
+	private void createThroughputGraph(List<DataPoint> points, Function function) {
+		Graph graph = tools.graph().createGraph("Throughput");
+		graph.setXAxis("Number of Concurrent Requests", null, null);
+		graph.setYAxis("Transactions / s");
+		if (function != null) {
+			graph.add(function.toString(), function);
+		}
+		graph.add("Measured", points);
+	}
+	
+	private void createNetworkTrafficGraph(List<DataPoint> sentPoints, Function sentFunction, List<DataPoint> receivedPoints, Function receivedFunction) {
+		Graph graph = tools.graph().createGraph("Network Traffic");
+		graph.setXAxis("Number of Concurrent Requests", null, null);
+		graph.setYAxis("Network Traffic [KB / s]");
+		if (sentFunction != null) {
+			graph.add(sentFunction.toString(), sentFunction);
+		}
+		graph.add("Sent", sentPoints);
+		if (receivedFunction != null) {
+			graph.add(receivedFunction.toString(), receivedFunction);
+		}
+		graph.add("Received", receivedPoints);
 	}
 	
 	private void createResponseTimeGraph(List<ConcurrentRequestData> stats) {
@@ -186,16 +224,36 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	}
 
 	private void printApdexFitResults(Function apdexFunction, List<DataPoint> points) {
-		double r2 = functions.calculareR2(apdexFunction, points);
+		double r2 = functions.calculateR2(apdexFunction, points);
 		print("APDEX function R2: %.2f", r2);
 	}
 
 	private void printFailureFitResults(Function errorFunction, List<DataPoint> points) {
-		double r2 = functions.calculareR2(errorFunction, points);
+		double r2 = functions.calculateR2(errorFunction, points);
 		print("Failure function R2: %.2f", r2);
 	}
+	
+	private void printThroughputFitResults(Function throughputFunction, List<DataPoint> points) {
+		double r2 = functions.calculateR2(throughputFunction, points);
+		print("Throughput function R2: %.2f", r2);
+	}
+	
+	private void printMaxThroughput(Function throughputFunction, Function networkSentFunction, Function networkReceivedFunction, double failureLimit) {
+		double max = throughputFunction.value(failureLimit);
+		if (!Double.isNaN(max) && Double.isFinite(max)) {
+			print("Maximum throughput: %.2f transaction/s", max);
+		}
+		max = networkSentFunction.value(failureLimit);
+		if (!Double.isNaN(max) && Double.isFinite(max)) {
+			print("Maximum network traffic sent: %.2f KB/s", max);
+		}
+		max = networkReceivedFunction.value(failureLimit);
+		if (!Double.isNaN(max) && Double.isFinite(max)) {
+			print("Maximum network traffic reveived: %.2f KB/s", max);
+		}
+	}
 
-	private void printSummary(List<ConcurrentRequestData> stats, ConcurrentRequestData totalData) {
+	private void tableSummary(List<ConcurrentRequestData> stats, ConcurrentRequestData totalData) {
 		Table table = tools.table().createTable("Statistics by Number of Concurrent Requests");
 		table.getHeader().addCell("NCR");
 		table.getHeader().addCell("Failures");
@@ -227,7 +285,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		row.addCell(roundApdex(totalData.getApdex()));
 	}
 	
-	private void printRequestLimits(Function apdexFunction, double limit1, double limit2, double errorLimit, double crashLimit) {
+	private void tableRequestLimits(Function apdexFunction, double limit1, double limit2, double errorLimit, double crashLimit) {
 		boolean hasApdexLimits = apdexFunction != null;
 		boolean hasErrorLimit = !Double.isNaN(errorLimit);
 		boolean hasCrashLimit = !Double.isNaN(crashLimit);
@@ -264,7 +322,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		}
 	}
 	
-	private void printThroughput(List<ConcurrentRequestData> stats, ConcurrentRequestData totalData) {
+	private void tableThroughput(List<ConcurrentRequestData> stats, ConcurrentRequestData totalData) {
 		Table table = tools.table().createTable("Throughput");
 		table.getHeader().addCell("NCR");
 		table.getHeader().addCell("Transactions/s");
@@ -345,6 +403,36 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return false;
 	}
 	
+	private List<DataPoint> getThroughputData(List<ConcurrentRequestData> stats) {
+		List<DataPoint> points = new ArrayList<>();
+		for (ConcurrentRequestData data : stats) {
+			if (!data.hasFailure()) {
+				points.add(point(data.count(), data.getThroughput()));
+			}
+		}
+		return points;
+	}
+	
+	private List<DataPoint> getNetworkSentData(List<ConcurrentRequestData> stats) {
+		List<DataPoint> points = new ArrayList<>();
+		for (ConcurrentRequestData data : stats) {
+			if (!data.hasFailure()) {
+				points.add(point(data.count(), data.getNetworkSent()));
+			}
+		}
+		return points;
+	}
+	
+	private List<DataPoint> getNetworkReceivedData(List<ConcurrentRequestData> stats) {
+		List<DataPoint> points = new ArrayList<>();
+		for (ConcurrentRequestData data : stats) {
+			if (!data.hasFailure()) {
+				points.add(point(data.count(), data.getNetworkReceived()));
+			}
+		}
+		return points;
+	}
+	
 	private List<DataPoint> getFailureData(List<ConcurrentRequestData> stats) {
 		List<DataPoint> points = new ArrayList<>();
 		points.add(point(0.0, 0.0));
@@ -382,6 +470,13 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		} else {
 			function = functions.getMirrorZFunction(points);
 		}
+		tools.regression().getNonLinearRegression(function, points).run();
+		return function;
+	}
+	
+	private Function getThroughputFunction(List<DataPoint> points) {
+		Function function = functions.getExponentialDistributionFunction(points);
+		System.out.println(function);
 		tools.regression().getNonLinearRegression(function, points).run();
 		return function;
 	}

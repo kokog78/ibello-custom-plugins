@@ -7,6 +7,8 @@ import hu.ibello.functions.CumulativeRayleighFunction;
 import hu.ibello.functions.DataPoint;
 import hu.ibello.functions.DataPointImpl;
 import hu.ibello.functions.ExponentialApdexFunction;
+import hu.ibello.functions.ExponentialDistributionFunction;
+import hu.ibello.functions.ExponentialDistributionInverseFunction;
 import hu.ibello.functions.Function;
 import hu.ibello.functions.Logistic4Function;
 import hu.ibello.functions.LogisticErrorFunction;
@@ -218,7 +220,29 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	public double calculareR2(Function function, List<DataPoint> points) {
+	public ExponentialDistributionFunction getExponentialDistributionFunction(List<DataPoint> points) {
+		ExponentialDistributionFunction function = new ExponentialDistributionFunction();
+		double y0 = 0;
+		for (DataPoint point : points) {
+			if (y0 < point.getY()) {
+				y0 = point.getY();
+			}
+		}
+		if (y0 <= 0.0) {
+			y0 = 1.0;
+		}
+		ExponentialDistributionInverseFunction inverse = new ExponentialDistributionInverseFunction();
+		inverse.setY0(y0);
+		double lambda = calculateAverage(points, 1.0, point -> {
+			inverse.setLambda(point.getX());
+			return inverse.value(point.getY());
+		});
+		function.setY0(y0);
+		function.setLambda(lambda);
+		return function;
+	}
+	
+	public double calculateR2(Function function, List<DataPoint> points) {
 		double r2 = 0.0;
 		double ymean = 0.0;
 		int count = 0;
@@ -239,5 +263,22 @@ public class FunctionHelper {
 		}
 		r2 = 1.0 - (r2 / divisor);
 		return r2;
+	}
+	
+	private double calculateAverage(List<DataPoint> points, double defaultValue, java.util.function.Function<DataPoint, Double> calculator) {
+		double sum = 0;
+		int count = 0;
+		for (DataPoint point : points) {
+			double value = calculator.apply(point);
+			if (!Double.isNaN(value) && !Double.isInfinite(value)) {
+				sum += value;
+				count++;
+			}
+		}
+		if (count > 0) {
+			return sum / count;
+		} else {
+			return defaultValue;
+		}
 	}
 }
