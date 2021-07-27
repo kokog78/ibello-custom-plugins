@@ -144,6 +144,27 @@ public class FunctionHelper {
 		return function;
 	}
 	
+	public Function getLogisticThroughputFunction(List<DataPoint> points) {
+		Logistic4Function function = new Logistic4Function();
+		double y1 = 0;
+		double b = 1.0;
+		for (DataPoint point : points) {
+			if (point.getY() > y1) {
+				y1 = point.getY();
+			}
+		}
+		double c = calculateAverage(points, 10.0, logisticThroughputCCalculator(y1, b));
+		function.setY1(0.0);
+		function.setY1(y1);
+		function.setB(b);
+		function.setC(c);
+		return function;
+	}
+	
+	private java.util.function.Function<DataPoint, Double> logisticThroughputCCalculator(double y1, double b) {
+		return point -> point.getX() / Math.pow((y1 / (y1 - point.getY())) - 1, 1 / b);
+	}
+	
 	public CumulativeRayleighFunction getCumulativeRayleighFunction(List<DataPoint> points) {
 		CumulativeRayleighFunction function = new CumulativeRayleighFunction();
 		double x0 = 0;

@@ -124,14 +124,19 @@ public class JmeterPlugin implements IbelloTaskRunner {
 
 	private void processThroughput(List<ConcurrentRequestData> stats, ConcurrentRequestData total, double failureLimit) {
 		tableThroughput(stats, total);
+		// throughput graph
 		List<DataPoint> throughputData = getThroughputData(stats);
 		Function throughputFunction = getThroughputFunction(throughputData);
 		createThroughputGraph(throughputData, throughputFunction);
+		// sent graph
 		List<DataPoint> networkSentData = getNetworkSentData(stats);
 		Function networkSentFunction = getThroughputFunction(networkSentData);
+		createNetworkTrafficGraph(networkSentData, networkSentFunction, "Sent");
+		// received graph
 		List<DataPoint> networkReceivedData = getNetworkReceivedData(stats);
 		Function networkReceivedFunction = getThroughputFunction(networkReceivedData);
-		createNetworkTrafficGraph(networkSentData, networkSentFunction, networkReceivedData, networkReceivedFunction);
+		createNetworkTrafficGraph(networkReceivedData, networkReceivedFunction, "Received");
+		// results
 		printThroughputFitResults(throughputFunction, throughputData);
 		printMaxThroughput(throughputFunction, networkSentFunction, networkReceivedFunction, failureLimit);
 	}
@@ -166,18 +171,14 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		graph.add("Measured", points);
 	}
 	
-	private void createNetworkTrafficGraph(List<DataPoint> sentPoints, Function sentFunction, List<DataPoint> receivedPoints, Function receivedFunction) {
-		Graph graph = tools.graph().createGraph("Network Traffic");
+	private void createNetworkTrafficGraph(List<DataPoint> points, Function function, String label) {
+		Graph graph = tools.graph().createGraph("Network Traffic " + label);
 		graph.setXAxis("Number of Concurrent Requests", null, null);
 		graph.setYAxis("Network Traffic [KB / s]");
-		if (sentFunction != null) {
-			graph.add(sentFunction.toString(), sentFunction);
+		if (function != null) {
+			graph.add(function.toString(), function);
 		}
-		graph.add("Sent", sentPoints);
-		if (receivedFunction != null) {
-			graph.add(receivedFunction.toString(), receivedFunction);
-		}
-		graph.add("Received", receivedPoints);
+		graph.add(label, points);
 	}
 	
 	private void createResponseTimeGraph(List<ConcurrentRequestData> stats) {
@@ -475,8 +476,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	}
 	
 	private Function getThroughputFunction(List<DataPoint> points) {
-		Function function = functions.getExponentialDistributionFunction(points);
-		System.out.println(function);
+		Function function = functions.getLogisticThroughputFunction(points);
 		tools.regression().getNonLinearRegression(function, points).run();
 		return function;
 	}
