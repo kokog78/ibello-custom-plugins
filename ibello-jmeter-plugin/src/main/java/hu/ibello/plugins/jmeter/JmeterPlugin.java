@@ -226,31 +226,45 @@ public class JmeterPlugin implements IbelloTaskRunner {
 
 	private void printApdexFitResults(Function apdexFunction, List<DataPoint> points) {
 		double r2 = functions.calculateR2(apdexFunction, points);
-		print("APDEX function R2: %.2f", r2);
+		if (!Double.isNaN(r2)) {
+			print("APDEX function R2: %.2f", r2);
+		}
 	}
 
 	private void printFailureFitResults(Function errorFunction, List<DataPoint> points) {
 		double r2 = functions.calculateR2(errorFunction, points);
-		print("Failure function R2: %.2f", r2);
+		if (!Double.isNaN(r2)) {
+			print("Failure function R2: %.2f", r2);
+		}
 	}
 	
 	private void printThroughputFitResults(Function throughputFunction, List<DataPoint> points) {
-		double r2 = functions.calculateR2(throughputFunction, points);
-		print("Throughput function R2: %.2f", r2);
+		if (throughputFunction != null) {
+			double r2 = functions.calculateR2(throughputFunction, points);
+			if (!Double.isNaN(r2)) {
+				print("Throughput function R2: %.2f", r2);
+			}
+		}
 	}
 	
 	private void printMaxThroughput(Function throughputFunction, Function networkSentFunction, Function networkReceivedFunction, double failureLimit) {
-		double max = throughputFunction.value(failureLimit);
-		if (!Double.isNaN(max) && Double.isFinite(max)) {
-			print("Maximum throughput: %.2f transaction/s", max);
+		if (throughputFunction != null) {
+			double max = throughputFunction.value(failureLimit);
+			if (!Double.isNaN(max) && Double.isFinite(max)) {
+				print("Maximum throughput: %.2f transaction/s", max);
+			}
 		}
-		max = networkSentFunction.value(failureLimit);
-		if (!Double.isNaN(max) && Double.isFinite(max)) {
-			print("Maximum network traffic sent: %.2f KB/s", max);
+		if (networkSentFunction != null) {
+			double max = networkSentFunction.value(failureLimit);
+			if (!Double.isNaN(max) && Double.isFinite(max)) {
+				print("Maximum network traffic sent: %.2f KB/s", max);
+			}
 		}
-		max = networkReceivedFunction.value(failureLimit);
-		if (!Double.isNaN(max) && Double.isFinite(max)) {
-			print("Maximum network traffic reveived: %.2f KB/s", max);
+		if (networkReceivedFunction != null) {
+			double max = networkReceivedFunction.value(failureLimit);
+			if (!Double.isNaN(max) && Double.isFinite(max)) {
+				print("Maximum network traffic reveived: %.2f KB/s", max);
+			}
 		}
 	}
 
@@ -476,6 +490,9 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	}
 	
 	private Function getThroughputFunction(List<DataPoint> points) {
+		if (points.size() < 4) {
+			return null;
+		}
 		Function function = functions.getLogisticThroughputFunction(points);
 		tools.regression().getNonLinearRegression(function, points).run();
 		return function;

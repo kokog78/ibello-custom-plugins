@@ -146,16 +146,16 @@ public class FunctionHelper {
 	
 	public Function getLogisticThroughputFunction(List<DataPoint> points) {
 		Logistic4Function function = new Logistic4Function();
-		double y1 = 0;
+		double y0 = 0;
 		double b = 1.0;
 		for (DataPoint point : points) {
-			if (point.getY() > y1) {
-				y1 = point.getY();
+			if (point.getY() > y0) {
+				y0 = point.getY();
 			}
 		}
-		double c = calculateAverage(points, 10.0, logisticThroughputCCalculator(y1, b));
+		double c = calculateAverage(points, 10.0, logisticThroughputCCalculator(y0, b));
+		function.setY0(y0);
 		function.setY1(0.0);
-		function.setY1(y1);
 		function.setB(b);
 		function.setC(c);
 		return function;
