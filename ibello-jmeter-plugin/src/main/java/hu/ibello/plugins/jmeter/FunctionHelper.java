@@ -11,6 +11,7 @@ import hu.ibello.functions.ExponentialDistributionFunction;
 import hu.ibello.functions.ExponentialDistributionInverseFunction;
 import hu.ibello.functions.Function;
 import hu.ibello.functions.Logistic4Function;
+import hu.ibello.functions.LogisticApdexFunction;
 import hu.ibello.functions.LogisticErrorFunction;
 import hu.ibello.functions.MirrorZFunction;
 import hu.ibello.functions.PowerFunction;
@@ -58,8 +59,8 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	public Function getLogisticApdexFunction(List<DataPoint> points) {
-		Logistic4Function function = new Logistic4Function();
+	public LogisticApdexFunction getLogisticApdexFunction(List<DataPoint> points) {
+		LogisticApdexFunction function = new LogisticApdexFunction();
 		double y1 = 0.0;
 		for (DataPoint point : points) {
 			y1 = Math.max(y1, point.getY());

@@ -44,7 +44,7 @@
                     "title": "APDEX satisfaction limit",
                     "description": "Above this APDEX value users are satisfied with the application",
                     "name": "jmeter.apdex.satisfied",
-                    "value": "0.8",
+                    "value": "0.9",
                     "kind": "DECIMAL"
                 },
                 {

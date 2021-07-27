@@ -19,11 +19,9 @@ import java.util.stream.Stream;
 import hu.ibello.functions.ConstantFunction;
 import hu.ibello.functions.DataPoint;
 import hu.ibello.functions.DataPointImpl;
-import hu.ibello.functions.ExponentialApdexInverseFunction;
 import hu.ibello.functions.Function;
-import hu.ibello.functions.Logistic4InverseFunction;
+import hu.ibello.functions.InversableFunction;
 import hu.ibello.functions.X0Function;
-import hu.ibello.functions.ZInverseFunction;
 import hu.ibello.graph.Graph;
 import hu.ibello.plugins.IbelloTaskRunner;
 import hu.ibello.plugins.PluginException;
@@ -73,7 +71,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				if (type == null) {
 					type = ApdexFunctionType.Exponential;
 				}
-				double apdexLimitSatisfied = tools.getConfigurationValue(PARAMETER_APDEX_SATISFIED).toDouble(0.8);
+				double apdexLimitSatisfied = tools.getConfigurationValue(PARAMETER_APDEX_SATISFIED).toDouble(0.9);
 				double apdexLimitTolerated = tools.getConfigurationValue(PARAMETER_APDEX_TOLERATED).toDouble(0.5);
 				// process results
 				List<JmeterResult> results = loadResults(file, encoding, keepPattern, skipPattern);
@@ -102,8 +100,10 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		Function apdexInverseFunction = null;
 		if (hasNon1Apdex(stats)) {
 			List<DataPoint> apdexPoints = getApdexData(stats);
-			Function apdexFunction = getApdexFunction(apdexPoints, type);
-			apdexInverseFunction = getInverseApdexFunction(apdexFunction, type);
+			InversableFunction apdexFunction = getApdexFunction(apdexPoints, type);
+			if (apdexFunction != null) {
+				apdexInverseFunction = apdexFunction.getInverseFunction();
+			}
 			createApdexGraph(apdexPoints, apdexFunction, apdexLimitSatisfied, apdexLimitTolerated);
 			printFitResult("APDEX function", apdexFunction, apdexPoints);
 		}
@@ -153,7 +153,9 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		Graph graph = tools.graph().createGraph("Application Performance Index");
 		graph.setXAxis("Number of Concurrent Requests", null, null);
 		graph.setYAxis("Application Performance Index");
-		graph.add(apdexFunction.toString(), apdexFunction);
+		if (apdexFunction != null) {
+			graph.add(apdexFunction.toString(), apdexFunction);
+		}
 		graph.add("Measured", points);
 		graph.add("Satistaction limit", new ConstantFunction(apdexLimitSatisfied));
 		graph.add("Toleration limit", new ConstantFunction(apdexLimitTolerated));
@@ -361,8 +363,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return points;
 	}
 	
-	private Function getApdexFunction(List<DataPoint> points, ApdexFunctionType type) {
-		Function function;
+	private InversableFunction getApdexFunction(List<DataPoint> points, ApdexFunctionType type) {
+		InversableFunction function;
 		switch (type) {
 		case Linear:
 			function = functions.getZFunction(points);
@@ -374,25 +376,13 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			function = functions.getExponentialApdexFunction(points);
 			break;
 		}
-		tools.regression().getNonLinearRegression(function, points).run();
-		return function;
-	}
-	
-	private Function getInverseApdexFunction(Function function, ApdexFunctionType type) {
-		Function inverse;
-		switch (type) {
-		case Linear:
-			inverse = new ZInverseFunction();
-			break;
-		case Logistic:
-			inverse = new Logistic4InverseFunction();
-			break;
-		default:
-			inverse = new ExponentialApdexInverseFunction();
-			break;
+		try {
+			tools.regression().getNonLinearRegression(function, points).run();
+		} catch (Exception ex) {
+			tools.error("Cannot fit APDEX function", ex);
+			function = null;
 		}
-		inverse.setParameters(function.getParameters());
-		return inverse;
+		return function;
 	}
 	
 	private int getFailurePointCount(List<ConcurrentRequestData> stats) {
