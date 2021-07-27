@@ -82,20 +82,13 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				// test run info
 				printDates(results);
 				// apdex
-				Function inverseFunction = null;
-				if (hasNon1Apdex(stats)) {
-					List<DataPoint> apdexPoints = getApdexData(stats);
-					Function apdexFunction = getApdexFunction(apdexPoints, type);
-					inverseFunction = getInverseApdexFunction(apdexFunction, type);
-					createApdexGraph(apdexPoints, apdexFunction, apdexLimitSatisfied, apdexLimitTolerated);
-					printFitResult("APDEX function", apdexFunction, apdexPoints);
-				}
+				Function apdexInverseFunction = processApdex(stats, type, apdexLimitSatisfied, apdexLimitTolerated);
 				// failures
 				FailureData failure = processFailures(stats);
 				// summary table
 				tableSummary(stats, total);
 				// request limits
-				tableRequestLimits(inverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failure);
+				tableRequestLimits(apdexInverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failure);
 				// throughput
 				processThroughput(stats, total, failure);
 				// average response times
@@ -105,17 +98,30 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return false;
 	}
 
+	private Function processApdex(List<ConcurrentRequestData> stats, ApdexFunctionType type, double apdexLimitSatisfied, double apdexLimitTolerated) {
+		Function apdexInverseFunction = null;
+		if (hasNon1Apdex(stats)) {
+			List<DataPoint> apdexPoints = getApdexData(stats);
+			Function apdexFunction = getApdexFunction(apdexPoints, type);
+			apdexInverseFunction = getInverseApdexFunction(apdexFunction, type);
+			createApdexGraph(apdexPoints, apdexFunction, apdexLimitSatisfied, apdexLimitTolerated);
+			printFitResult("APDEX function", apdexFunction, apdexPoints);
+		}
+		return apdexInverseFunction;
+	}
+
 	private FailureData processFailures(List<ConcurrentRequestData> stats) {
 		FailureData failure = new FailureData();
 		int failures = getFailurePointCount(stats);
 		if (failures > 0) {
 			List<DataPoint> failurePoints = getFailureData(stats);
+			failure.updateFailureLimit(getLastSuccessfulRequestCount(failurePoints));
+			failure.updateCrashLimit(getFirstFullFailureRequestCount(failurePoints));
 			X0Function failureFunction = getFailureFunction(failurePoints, failures);
 			if (failureFunction != null) {
-				failure.setFailureLimit(Math.max(getLastSuccessfulRequestCount(failurePoints), failureFunction.getX0()));
+				failure.updateFailureLimit(failureFunction.getX0());
 				Function failureInverseFunction = failureFunction.getInverseFunction();
-				failure.setCrashLimit(getFirstFullFailureRequestCount(failurePoints));
-				failure.setCrashLimit(failureInverseFunction.value(1.0));
+				failure.updateCrashLimit(failureInverseFunction.value(1.0));
 			}
 			// failure graph
 			createFailureGraph(failurePoints, failureFunction);

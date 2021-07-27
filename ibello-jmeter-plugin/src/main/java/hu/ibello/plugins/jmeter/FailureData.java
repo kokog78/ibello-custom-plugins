@@ -9,15 +9,17 @@ class FailureData {
 		return failureLimit;
 	}
 	
-	public void setFailureLimit(double failureLimit) {
-		this.failureLimit = failureLimit;
+	public void updateFailureLimit(double failureLimit) {
+		if (Double.isNaN(this.failureLimit) || failureLimit < this.failureLimit) {
+			this.failureLimit = failureLimit;
+		}
 	}
 	
 	public double getCrashLimit() {
 		return crashLimit;
 	}
 	
-	public void setCrashLimit(double crashLimit) {
+	public void updateCrashLimit(double crashLimit) {
 		if (Double.isNaN(this.crashLimit) || crashLimit < this.crashLimit) {
 			this.crashLimit = crashLimit;
 		}
