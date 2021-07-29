@@ -2,6 +2,38 @@
     "title": "Ibello Jmeter Tasks",
     "description": "Tasks for load and stress testing with Apache Jmeter.",
     "tasks": [
+    	{
+            "title": "Basic information",
+            "description": "Lists basic information of Jmeter test result file.",
+            "name": "jmeter.basic",
+            "parameters": [
+                {
+                    "title": "Result file",
+                    "description": "Jmeter result file",
+                    "name": "jmeter.file.result",
+                    "kind": "FILE"
+                },
+                {
+                    "title": "File encoding",
+                    "description": "Jmeter result file's encoding'",
+                    "name": "jmeter.file.encoding",
+                    "value": "UTF-8",
+                    "kind": "STRING"
+                },
+                {
+                    "title": "Positive pattern for label",
+                    "description": "Only keep measures where the label matches this regular expression",
+                    "name": "jmeter.pattern.keep",
+                    "kind": "STRING"
+                },
+                {
+                    "title": "Negative pattern for label",
+                    "description": "Skip measures where the label matches this regular expression",
+                    "name": "jmeter.pattern.skip",
+                    "kind": "STRING"
+                }
+            ]
+        },
         {
             "title": "NCR Analysis",
             "description": "Analyzes Jmeter test result file. The file should contain results from multiple measurements. Each of them used the same request multiple times, concurrently. The task groups the concurrent requests and calculates Application Performance Index (APDEX) for them. The Number of Concurrent Requests (NCR) is the base of the analysis. The \"NCR - APDEX\" and \"NCR - response time\" relationships are checked.",

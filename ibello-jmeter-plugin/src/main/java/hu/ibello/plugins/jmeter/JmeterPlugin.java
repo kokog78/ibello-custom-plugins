@@ -7,14 +7,9 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import hu.ibello.functions.ConstantFunction;
 import hu.ibello.functions.DataPoint;
@@ -28,6 +23,7 @@ import hu.ibello.plugins.PluginException;
 import hu.ibello.plugins.PluginInitializer;
 import hu.ibello.plugins.jmeter.model.ApdexFunctionType;
 import hu.ibello.plugins.jmeter.model.ConcurrentRequestData;
+import hu.ibello.plugins.jmeter.model.GroupedRequestData;
 import hu.ibello.plugins.jmeter.model.JmeterResult;
 import hu.ibello.table.Table;
 import hu.ibello.table.TableRow;
@@ -35,6 +31,7 @@ import hu.ibello.transform.TransformerException;
 
 public class JmeterPlugin implements IbelloTaskRunner {
 
+	private final static String TASK_BASIC = "jmeter.basic";
 	private final static String TASK_NCR = "jmeter.ncr";
 	private final static String PARAMETER_RESULT_FILE = "jmeter.file.result";
 	private final static String PARAMETER_ENCODING = "jmeter.file.encoding";
@@ -54,17 +51,22 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		this.tools = initializer;
 		functions = new FunctionHelper(this.tools.regression());
 	}
-
+	
 	@Override
 	public boolean runTask(String name) throws PluginException {
-		if (name.equals(TASK_NCR)) {
-			File file = tools.getConfigurationValue(PARAMETER_RESULT_FILE).toFile();
-			if (file == null) {
-				tools.error("File should be specified.");
-			} else {
-				String encoding = tools.getConfigurationValue(PARAMETER_ENCODING).toString("UTF-8");
-				String keepPattern = tools.getConfigurationValue(PARAMETER_PATTERN_KEEP).toString("");
-				String skipPattern = tools.getConfigurationValue(PARAMETER_PATTERN_SKIP).toString("");
+		if (name.equals(TASK_BASIC)) {
+			List<JmeterResult> results = loadResults();
+			if (results != null) {
+				ResultStatCollector collector = new ResultStatCollector(results);
+				List<GroupedRequestData> stats = collector.getGroupedStats();
+				GroupedRequestData total = collector.getTotalGroupedStats();
+				printDates(results);
+				tableLabels(stats, total);
+			}
+			return true;
+		} else if (name.equals(TASK_NCR)) {
+			List<JmeterResult> results = loadResults();
+			if (results != null) {
 				int satisfiedThresholds = tools.getConfigurationValue(PARAMETER_THRESHOLD_SATISFIED).toInteger(3000);
 				int toleratedThresholds = tools.getConfigurationValue(PARAMETER_THRESHOLD_TOLERATED).toInteger(12000);
 				ApdexFunctionType type = tools.getConfigurationValue(PARAMETER_FUNCTION).toEnum(ApdexFunctionType.class);
@@ -73,10 +75,9 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				}
 				double apdexLimitSatisfied = tools.getConfigurationValue(PARAMETER_APDEX_SATISFIED).toDouble(0.9);
 				double apdexLimitTolerated = tools.getConfigurationValue(PARAMETER_APDEX_TOLERATED).toDouble(0.5);
-				// process results
-				List<JmeterResult> results = loadResults(file, encoding, keepPattern, skipPattern);
-				ConcurrentRequestData total = new ConcurrentRequestData(satisfiedThresholds, toleratedThresholds);
-				List<ConcurrentRequestData> stats = getSortedStats(results, total, satisfiedThresholds, toleratedThresholds);
+				ResultStatCollector collector = new ResultStatCollector(results);
+				List<ConcurrentRequestData> stats = collector.getConcurrentStats(satisfiedThresholds, toleratedThresholds);
+				ConcurrentRequestData total = collector.getTotalConcurrentStats();
 				// test run info
 				printDates(results);
 				// apdex
@@ -92,8 +93,22 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				// average response times
 				createResponseTimeGraph(stats);
 			}
+			return true;
 		}
 		return false;
+	}
+
+	private List<JmeterResult> loadResults() throws PluginException {
+		File file = tools.getConfigurationValue(PARAMETER_RESULT_FILE).toFile();
+		if (file == null) {
+			tools.error("File should be specified.");
+			return null;
+		} else {
+			String encoding = tools.getConfigurationValue(PARAMETER_ENCODING).toString("UTF-8");
+			String keepPattern = tools.getConfigurationValue(PARAMETER_PATTERN_KEEP).toString("");
+			String skipPattern = tools.getConfigurationValue(PARAMETER_PATTERN_SKIP).toString("");
+			return loadResults(file, encoding, keepPattern, skipPattern);
+		}
 	}
 
 	private Function processApdex(List<ConcurrentRequestData> stats, ApdexFunctionType type, double apdexLimitSatisfied, double apdexLimitTolerated) {
@@ -225,15 +240,18 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			}
 		}
 		SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		String smin = fmt.format(min);
-		String smax = fmt.format(max);
-		String day = smin.substring(0, 10);
-		if (smax.startsWith(day)) {
-			smax = smax.substring(11);
+		String smin = min == null ? "" : fmt.format(min);
+		String smax = max == null ? "" : fmt.format(max);
+		if (min != null && max != null) {
+			String day = smin.substring(0, 10);
+			if (smax.startsWith(day)) {
+				smax = smax.substring(11);
+			}
 		}
 		print("Test run time: %s - %s", smin, smax);
 	}
-
+	
+	
 	private void printFitResult(String name, Function function, List<DataPoint> points) {
 		if (function != null) {
 			double r2 = functions.calculateR2(function, points);
@@ -353,6 +371,33 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		row.addCell(roundThroughput(totalData.getThroughput()));
 		row.addCell(roundThroughput(totalData.getNetworkSent()));
 		row.addCell(roundThroughput(totalData.getNetworkReceived()));
+	}
+	
+	private void tableLabels(List<GroupedRequestData> stats, GroupedRequestData total) {
+		Table table = tools.table().createTable("Stats by Labels");
+		table.getHeader().addCell("Label");
+		table.getHeader().addCell("Start");
+		table.getHeader().addCell("End");
+		table.getHeader().addCell("Count");
+		table.getHeader().addCell("Failures");
+		table.getHeader().addCell("First success");
+		SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		for (GroupedRequestData data: stats) {
+			TableRow row = table.addRow();
+			row.addCell(data.getLabel());
+			row.addCell(fmt.format(data.getStartDate()));
+			row.addCell(fmt.format(data.getEndDate()));
+			row.addCell(data.getCount());
+			row.addCell(data.getFailedCount());
+			row.addCell(data.getFirstSuccessDate() == null ? "" : fmt.format(data.getFirstSuccessDate()));
+		}
+		TableRow row = table.addRow();
+		row.addCell("Total");
+		row.addCell(fmt.format(total.getStartDate()));
+		row.addCell(fmt.format(total.getEndDate()));
+		row.addCell(total.getCount());
+		row.addCell(total.getFailedCount());
+		row.addCell(total.getFirstSuccessDate() == null ? "" : fmt.format(total.getFirstSuccessDate()));
 	}
 	
 	private List<DataPoint> getApdexData(List<ConcurrentRequestData> stats) {
@@ -488,15 +533,6 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		tools.regression().getNonLinearRegression(function, points).run();
 		return function;
 	}
-	
-	private ConcurrentRequestData getRequestDataFor(Map<String, ConcurrentRequestData> apdexMap, JmeterResult result, int satisfiedThreshold, int toleratedThreshold) {
-		ConcurrentRequestData apdex = apdexMap.get(result.getLabel());
-		if (apdex == null) {
-			apdex = new ConcurrentRequestData(satisfiedThreshold, toleratedThreshold);
-			apdexMap.put(result.getLabel(), apdex);
-		}
-		return apdex;
-	}
 
 	private List<JmeterResult> loadResults(File file, String encoding, String keepPattern, String skipPattern) throws PluginException {
 		List<JmeterResult> results;
@@ -508,14 +544,17 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		Pattern keepP = (keepPattern != null && !keepPattern.isEmpty()) ? Pattern.compile(keepPattern) : null;
 		Pattern skipP = (skipPattern != null && !skipPattern.isEmpty()) ? Pattern.compile(skipPattern) : null;
 		if (keepP != null || skipP != null) {
-			Stream<JmeterResult> stream = results.stream();
-			if (keepP != null) {
-				stream = stream.filter(r -> keepP.matcher(r.getLabel()).find());
+			List<JmeterResult> oldResults = results;
+			results = new ArrayList<>();
+			for (JmeterResult result : oldResults) {
+				if (keepP != null && !keepP.matcher(result.getLabel()).find()) {
+					continue;
+				}
+				if (skipP != null && skipP.matcher(result.getLabel()).find()) {
+					continue;
+				}
+				results.add(result);
 			}
-			if (skipP != null) {
-				stream = stream.filter(r -> !skipP.matcher(r.getLabel()).find());
-			}
-			results = stream.collect(Collectors.toList());
 		}
 		return results;
 	}
@@ -530,18 +569,6 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	
 	private double roundThroughput(double value) {
 		return Math.round(value * 100) / 100.0;
-	}
-	
-	private List<ConcurrentRequestData> getSortedStats(List<JmeterResult> results, ConcurrentRequestData total, int satisfiedThresholds, int toleratedThresholds) {
-		Map<String, ConcurrentRequestData> map = new HashMap<>();
-		for (JmeterResult result : results) {
-			ConcurrentRequestData requestData = getRequestDataFor(map, result, satisfiedThresholds, toleratedThresholds);
-			requestData.register(result);
-			total.register(result);
-		}
-		List<ConcurrentRequestData> list = new ArrayList<>(map.values());
-		Collections.sort(list, (data1, data2) -> data1.count() - data2.count());
-		return list;
 	}
 	
 	private void print(String template, Object ... params) {
