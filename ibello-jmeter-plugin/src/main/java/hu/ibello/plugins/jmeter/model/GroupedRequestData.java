@@ -8,6 +8,9 @@ public class GroupedRequestData {
 	private Date startDate;
 	private Date endDate;
 	private Date firstSuccessDate;
+	private Date firstFailedDate;
+	private Date lastSuccessDate;
+	private Date lastFailedDate;
 	private int count;
 	private int failedCount;
 	
@@ -30,8 +33,17 @@ public class GroupedRequestData {
 			if (firstSuccessDate == null || sd.before(firstSuccessDate)) {
 				firstSuccessDate = sd;
 			}
+			if (lastSuccessDate == null || ed.after(lastSuccessDate)) {
+				lastSuccessDate = ed;
+			}
 		} else {
 			failedCount++;
+			if (firstFailedDate == null || sd.before(firstFailedDate)) {
+				firstFailedDate = sd;
+			}
+			if (lastFailedDate == null || ed.after(lastFailedDate)) {
+				lastFailedDate = ed;
+			}
 		}
 	}
 	
@@ -49,6 +61,18 @@ public class GroupedRequestData {
 	
 	public Date getFirstSuccessDate() {
 		return firstSuccessDate;
+	}
+	
+	public Date getLastSuccessDate() {
+		return lastSuccessDate;
+	}
+	
+	public Date getFirstFailedDate() {
+		return firstFailedDate;
+	}
+	
+	public Date getLastFailedDate() {
+		return lastFailedDate;
 	}
 	
 	public int getCount() {

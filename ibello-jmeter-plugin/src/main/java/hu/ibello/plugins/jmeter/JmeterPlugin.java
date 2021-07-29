@@ -381,6 +381,9 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		table.getHeader().addCell("Count");
 		table.getHeader().addCell("Failures");
 		table.getHeader().addCell("First success");
+		table.getHeader().addCell("Last success");
+		table.getHeader().addCell("First failed");
+		table.getHeader().addCell("Last failed");
 		SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		for (GroupedRequestData data: stats) {
 			TableRow row = table.addRow();
@@ -390,6 +393,9 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			row.addCell(data.getCount());
 			row.addCell(data.getFailedCount());
 			row.addCell(data.getFirstSuccessDate() == null ? "" : fmt.format(data.getFirstSuccessDate()));
+			row.addCell(data.getLastSuccessDate() == null ? "" : fmt.format(data.getLastSuccessDate()));
+			row.addCell(data.getFirstFailedDate() == null ? "" : fmt.format(data.getFirstFailedDate()));
+			row.addCell(data.getLastFailedDate() == null ? "" : fmt.format(data.getLastFailedDate()));
 		}
 		TableRow row = table.addRow();
 		row.addCell("Total");
@@ -398,6 +404,9 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		row.addCell(total.getCount());
 		row.addCell(total.getFailedCount());
 		row.addCell(total.getFirstSuccessDate() == null ? "" : fmt.format(total.getFirstSuccessDate()));
+		row.addCell(total.getLastSuccessDate() == null ? "" : fmt.format(total.getLastSuccessDate()));
+		row.addCell(total.getFirstFailedDate() == null ? "" : fmt.format(total.getFirstFailedDate()));
+		row.addCell(total.getLastFailedDate() == null ? "" : fmt.format(total.getLastFailedDate()));
 	}
 	
 	private List<DataPoint> getApdexData(List<ConcurrentRequestData> stats) {
