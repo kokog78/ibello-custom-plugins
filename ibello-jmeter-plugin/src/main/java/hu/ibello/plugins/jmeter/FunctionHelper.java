@@ -183,13 +183,19 @@ public class FunctionHelper {
 	public Function getLogisticThroughputFunction(List<DataPoint> points) {
 		Logistic4Function function = new Logistic4Function();
 		double y0 = 0;
-		double b = 1.0;
 		for (DataPoint point : points) {
 			if (point.getY() > y0) {
 				y0 = point.getY();
 			}
 		}
-		double c = calculateAverage(points, 10.0, logisticThroughputCCalculator(y0, b));
+		double b;
+		double c = findLogisticThroughputFunctionMean(points, y0);
+		if (Double.isNaN(c)) {
+			b = 1.0;
+			c = calculateAverage(points, 10.0, logisticThroughputCCalculator(y0, b));
+		} else {
+			b = calculateAverage(points, 1.0, logisticThroughputBCalculator(y0, c));
+		}
 		function.setY0(y0);
 		function.setY1(0.0);
 		function.setB(b);
@@ -197,8 +203,32 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	private java.util.function.Function<DataPoint, Double> logisticThroughputCCalculator(double y1, double b) {
-		return point -> point.getX() / Math.pow((y1 / (y1 - point.getY())) - 1, 1 / b);
+	private double findLogisticThroughputFunctionMean(List<DataPoint> points, double ymax) {
+		double yhalf = ymax / 2;
+		double x1 = 0;
+		double y1 = 0;
+		for (DataPoint point : points) {
+			if (point.getY() < yhalf) {
+				x1 = point.getX();
+				y1 = point.getY();
+			} else if (point.getY() == yhalf) {
+				return point.getX();
+			} else {
+				return x1 + (point.getX() - x1) * (yhalf - y1) / (point.getY() - y1);
+			}
+		}
+		return Double.NaN;
+	}
+	
+	private java.util.function.Function<DataPoint, Double> logisticThroughputBCalculator(double y0, double c) {
+		return point -> {
+			double r = point.getY() / y0;
+			return Math.log(r / (1-r)) / Math.log(point.getX() / c);
+		};
+	}
+	
+	private java.util.function.Function<DataPoint, Double> logisticThroughputCCalculator(double y0, double b) {
+		return point -> point.getX() / Math.pow((y0 / (y0 - point.getY())) - 1, 1 / b);
 	}
 	
 	public CumulativeRayleighFunction getCumulativeRayleighFunction(List<DataPoint> points) {

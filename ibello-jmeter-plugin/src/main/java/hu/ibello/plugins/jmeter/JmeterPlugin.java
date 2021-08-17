@@ -535,7 +535,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	}
 	
 	private Function getThroughputFunction(List<DataPoint> points) {
-		if (points.size() < 4) {
+		if (points.size() < 3) {
 			return null;
 		}
 		Function function = functions.getLogisticThroughputFunction(points);
