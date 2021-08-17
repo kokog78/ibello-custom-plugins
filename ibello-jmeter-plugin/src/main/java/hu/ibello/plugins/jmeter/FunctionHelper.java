@@ -65,38 +65,41 @@ public class FunctionHelper {
 		for (DataPoint point : points) {
 			y1 = Math.max(y1, point.getY());
 		}
-		List<DataPoint> internalPoints = new ArrayList<>();
-		for (DataPoint point : points) {
-			double y = (y1 / point.getY()) - 1;
-			if (Double.isFinite(y)) {
-				DataPoint p = new DataPointImpl(point.getX(), y);
-				internalPoints.add(p);
-			}
-		}
-		PowerFunction power = new PowerFunction(1, 2);
-		regression.getNonLinearRegression(power, internalPoints).run();
-		double b = power.getB();
-		double c = 1 / Math.pow(power.getA(), 1/b);
-		if (Double.isNaN(b)) {
-			b = 2;
-		}
+		double b = Double.NaN;
+		// finding c; if x = c then y = y1/2
+		double c = findLogisticApdexFunctionMean(points, y1);
 		if (Double.isNaN(c)) {
-			double sumC = 0.0;
-			int countC = 0;
+			// calculating (x / c) ^ b
+			List<DataPoint> internalPoints = new ArrayList<>();
+			boolean hasDifferentValues = false;
+			Double yPrev = null;
 			for (DataPoint point : points) {
-				if (point.getY() < y1) {
-					double c1 = Math.pow(y1 / point.getY(), 1/b) - 1.0;
-					if (c1 > 0.0) {
-						c1 = point.getX() / c1;
-						sumC += c1;
-						countC++;
-					}
+				double y = (y1 / point.getY()) - 1;
+				if (Double.isFinite(y)) {
+					DataPoint p = new DataPointImpl(point.getX(), y);
+					internalPoints.add(p);
+					hasDifferentValues |= (yPrev != null) && (yPrev.doubleValue() != y);
+					yPrev = y;
 				}
 			}
-			if (countC > 0) {
-				c = sumC / countC;
-			} else {
-				c = 20;
+			if (hasDifferentValues) {
+				// fitting power function - only if we have at least 2 different values
+				PowerFunction power = new PowerFunction(1, 2);
+				regression.getNonLinearRegression(power, internalPoints).run();
+				b = power.getB();
+				c = 1 / Math.pow(power.getA(), 1/b);
+			}
+			if (Double.isNaN(b)) {
+				b = 2;
+			}
+			if (Double.isNaN(c)) {
+				// calculating average of c
+				c = calculateAverage(points, 20, logisticApdexCCalculator(y1, b));
+			}
+		} else {
+			b = calculateAverage(points, Double.NaN, logisticApdexBCalculator(y1, c));
+			if (Double.isNaN(b)) {
+				b = 2;
 			}
 		}
 		function.setY0(0);
@@ -104,6 +107,38 @@ public class FunctionHelper {
 		function.setB(b);
 		function.setC(c);
 		return function;
+	}
+	
+	private double findLogisticApdexFunctionMean(List<DataPoint> points, double ymax) {
+		double yhalf = ymax / 2;
+		double x1 = 0;
+		double y1 = 0;
+		for (DataPoint point : points) {
+			if (point.getY() > yhalf) {
+				x1 = point.getX();
+				y1 = point.getY();
+			} else if (point.getY() == yhalf) {
+				return point.getX();
+			} else {
+				return x1 + (point.getX() - x1) * (y1 - yhalf) / (y1 - point.getY());
+			}
+		}
+		return Double.NaN;
+	}
+	
+	private java.util.function.Function<DataPoint, Double> logisticApdexBCalculator(double y1, double c) {
+		return point -> Math.log((y1 / point.getY()) - 1) / Math.log(point.getX() / c);
+	}
+	
+	private java.util.function.Function<DataPoint, Double> logisticApdexCCalculator(double y1, double b) {
+		return point -> {
+			double c1 = Math.pow((y1 / point.getY())-1, 1/b);
+			if (c1 > 0.0) {
+				return point.getX() / c1;
+			} else {
+				return Double.NaN;
+			}
+		};
 	}
 	
 	public X0Function getLogisticErrorFunction(List<DataPoint> points) {
