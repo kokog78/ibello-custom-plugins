@@ -61,20 +61,25 @@ public class FunctionHelper {
 	
 	public LogisticApdexFunction getLogisticApdexFunction(List<DataPoint> points) {
 		LogisticApdexFunction function = new LogisticApdexFunction();
+		double y0 = 1.0;
 		double y1 = 0.0;
 		for (DataPoint point : points) {
+			y0 = Math.min(y0, point.getY());
 			y1 = Math.max(y1, point.getY());
+		}
+		if (y0 < 0.01) {
+			y0 = 0;
 		}
 		double b = Double.NaN;
 		// finding c; if x = c then y = y1/2
-		double c = findLogisticApdexFunctionMean(points, y1);
+		double c = findLogisticApdexFunctionMean(points, y0, y1);
 		if (Double.isNaN(c)) {
 			// calculating (x / c) ^ b
 			List<DataPoint> internalPoints = new ArrayList<>();
 			boolean hasDifferentValues = false;
 			Double yPrev = null;
 			for (DataPoint point : points) {
-				double y = (y1 / point.getY()) - 1;
+				double y = (y1 / (point.getY()-y0)) - 1;
 				if (Double.isFinite(y)) {
 					DataPoint p = new DataPointImpl(point.getX(), y);
 					internalPoints.add(p);
@@ -94,23 +99,23 @@ public class FunctionHelper {
 			}
 			if (Double.isNaN(c)) {
 				// calculating average of c
-				c = calculateAverage(points, 20, logisticApdexCCalculator(y1, b));
+				c = calculateAverage(points, 20, logisticApdexCCalculator(y0, y1, b));
 			}
 		} else {
-			b = calculateAverage(points, Double.NaN, logisticApdexBCalculator(y1, c));
+			b = calculateAverage(points, Double.NaN, logisticApdexBCalculator(y0, y1, c));
 			if (Double.isNaN(b)) {
 				b = 2;
 			}
 		}
-		function.setY0(0);
+		function.setY0(y0);
 		function.setY1(y1);
 		function.setB(b);
 		function.setC(c);
 		return function;
 	}
 	
-	private double findLogisticApdexFunctionMean(List<DataPoint> points, double ymax) {
-		double yhalf = ymax / 2;
+	private double findLogisticApdexFunctionMean(List<DataPoint> points, double ymin, double ymax) {
+		double yhalf = ymin + (ymax - ymin) / 2;
 		double x1 = 0;
 		double y1 = 0;
 		for (DataPoint point : points) {
@@ -126,13 +131,14 @@ public class FunctionHelper {
 		return Double.NaN;
 	}
 	
-	private java.util.function.Function<DataPoint, Double> logisticApdexBCalculator(double y1, double c) {
-		return point -> Math.log((y1 / point.getY()) - 1) / Math.log(point.getX() / c);
+	private java.util.function.Function<DataPoint, Double> logisticApdexBCalculator(double y0, double y1, double c) {
+		return point -> Math.log(((y1-y0) / (point.getY()-y0)) - 1) / Math.log(point.getX() / c);
 	}
 	
-	private java.util.function.Function<DataPoint, Double> logisticApdexCCalculator(double y1, double b) {
+	private java.util.function.Function<DataPoint, Double> logisticApdexCCalculator(double y0, double y1, double b) {
 		return point -> {
-			double c1 = Math.pow((y1 / point.getY())-1, 1/b);
+			double y = point.getY() - y0;
+			double c1 = Math.pow(((y1-y0) / y)-1, 1/b);
 			if (c1 > 0.0) {
 				return point.getX() / c1;
 			} else {

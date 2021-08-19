@@ -538,9 +538,14 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		if (points.size() < 3) {
 			return null;
 		}
-		Function function = functions.getLogisticThroughputFunction(points);
-		tools.regression().getNonLinearRegression(function, points).run();
-		return function;
+		try {
+			Function function = functions.getLogisticThroughputFunction(points);
+			tools.regression().getNonLinearRegression(function, points).run();
+			return function;
+		} catch (Exception ex) {
+			tools.error("Cannot fit throughput function", ex);
+			return null;
+		}
 	}
 
 	private List<JmeterResult> loadResults(File file, String encoding, String keepPattern, String skipPattern) throws PluginException {
