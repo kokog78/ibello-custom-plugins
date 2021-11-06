@@ -81,13 +81,14 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				// test run info
 				printDates(results);
 				// apdex
-				Function apdexInverseFunction = processApdex(stats, type, apdexLimitSatisfied, apdexLimitTolerated);
+				Function successfulApdexInverseFunction = processApdex(stats, type, true, apdexLimitSatisfied, apdexLimitTolerated);
+				processApdex(stats, type, false, apdexLimitSatisfied, apdexLimitTolerated);
 				// failures
 				FailureData failure = processFailures(stats);
 				// summary table
 				tableSummary(stats, total);
 				// request limits
-				tableRequestLimits(apdexInverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failure);
+				tableRequestLimits(successfulApdexInverseFunction, apdexLimitSatisfied, apdexLimitTolerated, failure);
 				// throughput
 				processThroughput(stats, total, failure);
 				// average response times
@@ -111,15 +112,15 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		}
 	}
 
-	private Function processApdex(List<ConcurrentRequestData> stats, ApdexFunctionType type, double apdexLimitSatisfied, double apdexLimitTolerated) {
+	private Function processApdex(List<ConcurrentRequestData> stats, ApdexFunctionType type, boolean successful, double apdexLimitSatisfied, double apdexLimitTolerated) {
 		Function apdexInverseFunction = null;
-		if (hasNon1Apdex(stats)) {
-			List<DataPoint> apdexPoints = getApdexData(stats);
+		if (hasNon1Apdex(stats, successful)) {
+			List<DataPoint> apdexPoints = successful ? getSuccessfulApdexData(stats) : getApdexData(stats);
 			InversableFunction apdexFunction = getApdexFunction(apdexPoints, type);
 			if (apdexFunction != null) {
 				apdexInverseFunction = apdexFunction.getInverseFunction();
 			}
-			createApdexGraph(apdexPoints, apdexFunction, apdexLimitSatisfied, apdexLimitTolerated);
+			createApdexGraph(apdexPoints, apdexFunction, successful, apdexLimitSatisfied, apdexLimitTolerated);
 			printFitResult("APDEX function", apdexFunction, apdexPoints);
 		}
 		return apdexInverseFunction;
@@ -164,8 +165,12 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		printMaxThroughput(throughputFunction, networkSentFunction, networkReceivedFunction, failure);
 	}
 
-	private void createApdexGraph(List<DataPoint> points, Function apdexFunction, double apdexLimitSatisfied, double apdexLimitTolerated) {
-		Graph graph = tools.graph().createGraph("Application Performance Index");
+	private void createApdexGraph(List<DataPoint> points, Function apdexFunction, boolean successful, double apdexLimitSatisfied, double apdexLimitTolerated) {
+		String title = "Application Performance Index";
+		if (successful) {
+			title += " for successful results";
+		}
+		Graph graph = tools.graph().createGraph(title);
 		graph.setXAxis("Number of Concurrent Requests", null, null);
 		graph.setYAxis("Application Performance Index");
 		if (apdexFunction != null) {
@@ -303,7 +308,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			row.addCell(Math.round(data.getAverageElapsed()));
 			row.addCell(Math.round(data.get90PercentElapsed()));
 			row.addCell(data.getMaxElapsed());
-			row.addCell(roundApdex(data.getApdex()));
+			row.addCell(roundApdex(data.getSuccessfulApdex()));
 		}
 		TableRow row = table.addRow();
 		row.addCell("Total");
@@ -313,7 +318,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		row.addCell(Math.round(totalData.getAverageElapsed()));
 		row.addCell(Math.round(totalData.get90PercentElapsed()));
 		row.addCell(totalData.getMaxElapsed());
-		row.addCell(roundApdex(totalData.getApdex()));
+		row.addCell(roundApdex(totalData.getSuccessfulApdex()));
 	}
 	
 	private void tableRequestLimits(Function apdexFunction, double limit1, double limit2, FailureData failure) {
@@ -417,6 +422,14 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return points;
 	}
 	
+	private List<DataPoint> getSuccessfulApdexData(List<ConcurrentRequestData> stats) {
+		List<DataPoint> points = new ArrayList<>();
+		for (ConcurrentRequestData data : stats) {
+			points.add(point(data.count(), data.getSuccessfulApdex()));
+		}
+		return points;
+	}
+	
 	private InversableFunction getApdexFunction(List<DataPoint> points, ApdexFunctionType type) {
 		InversableFunction function;
 		switch (type) {
@@ -449,9 +462,10 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		return result;
 	}
 	
-	private boolean hasNon1Apdex(List<ConcurrentRequestData> stats) {
+	private boolean hasNon1Apdex(List<ConcurrentRequestData> stats, boolean successful) {
 		for (ConcurrentRequestData data : stats) {
-			if (data.getApdex() < 1.0) {
+			double apdex = successful ? data.getSuccessfulApdex() : data.getApdex();
+			if (apdex < 1.0) {
 				return true;
 			}
 		}

@@ -13,6 +13,9 @@ public class ConcurrentRequestData {
 	private int satisfiedCount;
 	private int toleratedCount;
 	private int frustratingCount;
+	private int successfulSatisfiedCount;
+	private int successfulToleratedCount;
+	private int successfulFrustratingCount;
 	private int successCount;
 	private long totalElapsed;
 	private long minElapsed = -1;
@@ -39,6 +42,13 @@ public class ConcurrentRequestData {
 		}
 		if (result.isSuccess()) {
 			successCount++;
+			if (result.getElapsed() <= satisfiedThresholds) {
+				successfulSatisfiedCount++;
+			} else if (result.getElapsed() <= toleratedThresholds) {
+				successfulToleratedCount++;
+			} else {
+				successfulFrustratingCount++;
+			}
 		}
 		totalElapsed += result.getElapsed();
 		elapsedList.add(result.getElapsed());
@@ -148,11 +158,11 @@ public class ConcurrentRequestData {
 	}
 	
 	public double getApdex() {
-		double result = satisfiedCount + 0.5 * toleratedCount;
-		if (result >= 0.0) {
-			result /= count();
-		}
-		return result;
+		return getApdex(satisfiedCount, toleratedCount, frustratingCount);
+	}
+	
+	public double getSuccessfulApdex() {
+		return getApdex(successfulSatisfiedCount, successfulToleratedCount, successfulFrustratingCount);
 	}
 	
 	public double getFailureRatio() {
@@ -178,4 +188,13 @@ public class ConcurrentRequestData {
 		result *= 1000.0 / 1024.0;
 		return result;
 	}
+
+	private double getApdex(int satisfiedCount, int toleratedCount, int frustratingCount) {
+		double result = satisfiedCount + 0.5 * toleratedCount;
+		if (result >= 0.0) {
+			result /= (satisfiedCount + toleratedCount + frustratingCount);
+		}
+		return result;
+	}
+	
 }
