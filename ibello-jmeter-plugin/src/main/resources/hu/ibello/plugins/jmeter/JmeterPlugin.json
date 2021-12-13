@@ -101,6 +101,39 @@
                     "values": ["Linear", "Exponential", "Logistic"]
                 }
             ]
+        },
+        {
+        	"title": "Function fitting",
+            "description": "Fits the selected function to the given CSV dataset.",
+            "name": "jmeter.fit",
+            "parameters": [
+                {
+                    "title": "File",
+                    "description": "CSV dataset file",
+                    "name": "jmeter.file.csv",
+                    "kind": "FILE"
+                },
+                {
+                    "title": "Function",
+                    "description": "Type of the fitted function",
+                    "name": "jmeter.fit.function",
+                    "kind": "ENUMERATION",
+                    "value": "Exponential",
+                    "values": ["LinearApdex", "ExponentialApdex", "LogisticApdex", "LinearError", "LogisticError", "LogisticThroughput", "ExponentialDistribution", "CumulativeRayleigh"]
+                },
+                {
+                    "title": "X value",
+                    "description": "X value to caclulate Y",
+                    "name": "jmeter.value.x",
+                    "kind": "DECIMAL"
+                },
+                {
+                    "title": "Y value",
+                    "description": "Y value to calculate X",
+                    "name": "jmeter.value.y",
+                    "kind": "DECIMAL"
+                }
+            ]
         }
     ]
 }

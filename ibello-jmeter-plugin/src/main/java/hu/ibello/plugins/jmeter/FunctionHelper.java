@@ -5,7 +5,6 @@ import java.util.List;
 
 import hu.ibello.functions.CumulativeRayleighFunction;
 import hu.ibello.functions.DataPoint;
-import hu.ibello.functions.DataPointImpl;
 import hu.ibello.functions.ExponentialApdexFunction;
 import hu.ibello.functions.ExponentialDistributionFunction;
 import hu.ibello.functions.ExponentialDistributionInverseFunction;
@@ -18,6 +17,7 @@ import hu.ibello.functions.PowerFunction;
 import hu.ibello.functions.RegressionTool;
 import hu.ibello.functions.X0Function;
 import hu.ibello.functions.ZFunction;
+import hu.ibello.functions.impl.DataPointImpl;
 
 public class FunctionHelper {
 	
@@ -28,7 +28,7 @@ public class FunctionHelper {
 		this.regression = regression;
 	}
 
-	public ExponentialApdexFunction getExponentialApdexFunction(List<DataPoint> points) {
+	public ExponentialApdexFunction getExponentialApdexFunction(List<? extends DataPoint> points) {
 		ExponentialApdexFunction function = new ExponentialApdexFunction();
 		double x0 = Double.NaN;
 		double yLimit = 1 / Math.E;
@@ -59,7 +59,7 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	public LogisticApdexFunction getLogisticApdexFunction(List<DataPoint> points) {
+	public LogisticApdexFunction getLogisticApdexFunction(List<? extends DataPoint> points) {
 		LogisticApdexFunction function = new LogisticApdexFunction();
 		double y0 = 1.0;
 		double y1 = 0.0;
@@ -114,7 +114,7 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	private double findLogisticApdexFunctionMean(List<DataPoint> points, double ymin, double ymax) {
+	private double findLogisticApdexFunctionMean(List<? extends DataPoint> points, double ymin, double ymax) {
 		double yhalf = ymin + (ymax - ymin) / 2;
 		double x1 = 0;
 		double y1 = 0;
@@ -147,7 +147,7 @@ public class FunctionHelper {
 		};
 	}
 	
-	public X0Function getLogisticErrorFunction(List<DataPoint> points) {
+	public X0Function getLogisticErrorFunction(List<? extends DataPoint> points) {
 		LogisticErrorFunction function = new LogisticErrorFunction();
 		double c = Double.NaN;
 		double c2 = 1.0;
@@ -186,7 +186,7 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	public Function getLogisticThroughputFunction(List<DataPoint> points) {
+	public Function getLogisticThroughputFunction(List<? extends DataPoint> points) {
 		Logistic4Function function = new Logistic4Function();
 		double y0 = 0;
 		for (DataPoint point : points) {
@@ -209,7 +209,7 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	private double findLogisticThroughputFunctionMean(List<DataPoint> points, double ymax) {
+	private double findLogisticThroughputFunctionMean(List<? extends DataPoint> points, double ymax) {
 		double yhalf = ymax / 2;
 		double x1 = 0;
 		double y1 = 0;
@@ -237,7 +237,7 @@ public class FunctionHelper {
 		return point -> point.getX() / Math.pow((y0 / (y0 - point.getY())) - 1, 1 / b);
 	}
 	
-	public CumulativeRayleighFunction getCumulativeRayleighFunction(List<DataPoint> points) {
+	public CumulativeRayleighFunction getCumulativeRayleighFunction(List<? extends DataPoint> points) {
 		CumulativeRayleighFunction function = new CumulativeRayleighFunction();
 		double x0 = 0;
 		DataPoint lastPoint = null;
@@ -265,7 +265,7 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	public MirrorZFunction getMirrorZFunction(List<DataPoint> points) {
+	public MirrorZFunction getMirrorZFunction(List<? extends DataPoint> points) {
 		MirrorZFunction function = new MirrorZFunction();
 		double x0 = 0;
 		double x1 = Double.NaN;
@@ -289,7 +289,7 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	public ZFunction getZFunction(List<DataPoint> points) {
+	public ZFunction getZFunction(List<? extends DataPoint> points) {
 		ZFunction function = new ZFunction();
 		double x0 = 0;
 		double x1 = Double.NaN;
@@ -313,7 +313,7 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	public ExponentialDistributionFunction getExponentialDistributionFunction(List<DataPoint> points) {
+	public ExponentialDistributionFunction getExponentialDistributionFunction(List<? extends DataPoint> points) {
 		ExponentialDistributionFunction function = new ExponentialDistributionFunction();
 		double y0 = 0;
 		for (DataPoint point : points) {
@@ -335,7 +335,7 @@ public class FunctionHelper {
 		return function;
 	}
 	
-	public double calculateR2(Function function, List<DataPoint> points) {
+	public double calculateR2(Function function, List<? extends DataPoint> points) {
 		double r2 = 0.0;
 		double ymean = 0.0;
 		int count = 0;
@@ -358,7 +358,7 @@ public class FunctionHelper {
 		return r2;
 	}
 	
-	private double calculateAverage(List<DataPoint> points, double defaultValue, java.util.function.Function<DataPoint, Double> calculator) {
+	private double calculateAverage(List<? extends DataPoint> points, double defaultValue, java.util.function.Function<DataPoint, Double> calculator) {
 		double sum = 0;
 		int count = 0;
 		for (DataPoint point : points) {

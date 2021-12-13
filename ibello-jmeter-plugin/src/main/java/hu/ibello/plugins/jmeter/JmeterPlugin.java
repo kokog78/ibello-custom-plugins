@@ -13,16 +13,17 @@ import java.util.regex.Pattern;
 
 import hu.ibello.functions.ConstantFunction;
 import hu.ibello.functions.DataPoint;
-import hu.ibello.functions.DataPointImpl;
 import hu.ibello.functions.Function;
 import hu.ibello.functions.InversableFunction;
 import hu.ibello.functions.X0Function;
+import hu.ibello.functions.impl.DataPointImpl;
 import hu.ibello.graph.Graph;
 import hu.ibello.plugins.IbelloTaskRunner;
 import hu.ibello.plugins.PluginException;
 import hu.ibello.plugins.PluginInitializer;
 import hu.ibello.plugins.jmeter.model.ApdexFunctionType;
 import hu.ibello.plugins.jmeter.model.ConcurrentRequestData;
+import hu.ibello.plugins.jmeter.model.FunctionType;
 import hu.ibello.plugins.jmeter.model.GroupedRequestData;
 import hu.ibello.plugins.jmeter.model.JmeterResult;
 import hu.ibello.table.Table;
@@ -33,15 +34,20 @@ public class JmeterPlugin implements IbelloTaskRunner {
 
 	private final static String TASK_BASIC = "jmeter.basic";
 	private final static String TASK_NCR = "jmeter.ncr";
+	private final static String TASK_FIT = "jmeter.fit";
 	private final static String PARAMETER_RESULT_FILE = "jmeter.file.result";
 	private final static String PARAMETER_ENCODING = "jmeter.file.encoding";
 	private final static String PARAMETER_THRESHOLD_SATISFIED = "jmeter.threshold.satisfied";
 	private final static String PARAMETER_THRESHOLD_TOLERATED = "jmeter.threshold.tolerated";
 	private final static String PARAMETER_PATTERN_KEEP = "jmeter.pattern.keep";
 	private final static String PARAMETER_PATTERN_SKIP = "jmeter.pattern.skip";
-	private final static String PARAMETER_FUNCTION = "jmeter.apdex.function";
+	private final static String PARAMETER_APDEX_FUNCTION = "jmeter.apdex.function";
 	private final static String PARAMETER_APDEX_SATISFIED = "jmeter.apdex.satisfied";
 	private final static String PARAMETER_APDEX_TOLERATED = "jmeter.apdex.tolerated";
+	private final static String PARAMETER_CSV_FILE = "jmeter.file.csv";
+	private final static String PARAMETER_FIT_FUNCTION = "jmeter.fit.function";
+	private final static String PARAMETER_VALUE_X = "jmeter.value.x";
+	private final static String PARAMETER_VALUE_Y = "jmeter.value.y";
 	
 	private PluginInitializer tools;
 	private FunctionHelper functions;
@@ -69,7 +75,7 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			if (results != null) {
 				int satisfiedThresholds = tools.getConfigurationValue(PARAMETER_THRESHOLD_SATISFIED).toInteger(3000);
 				int toleratedThresholds = tools.getConfigurationValue(PARAMETER_THRESHOLD_TOLERATED).toInteger(12000);
-				ApdexFunctionType type = tools.getConfigurationValue(PARAMETER_FUNCTION).toEnum(ApdexFunctionType.class);
+				ApdexFunctionType type = tools.getConfigurationValue(PARAMETER_APDEX_FUNCTION).toEnum(ApdexFunctionType.class);
 				if (type == null) {
 					type = ApdexFunctionType.Exponential;
 				}
@@ -95,6 +101,37 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				createResponseTimeGraph(stats);
 			}
 			return true;
+		} else if (name.equals(TASK_FIT)) {
+			List<DataPoint> points = loadDataset();
+			if (points != null) {
+				FunctionType type = tools.getConfigurationValue(PARAMETER_FIT_FUNCTION).toEnum(FunctionType.class);
+				if (type == null) {
+					type = FunctionType.LinearApdex;
+				}
+				Function function = getDatasetFunction(type, points);
+				try {
+					tools.regression().getNonLinearRegression(function, points).run();
+				} catch (Exception ex) {
+					tools.error("Cannot fit APDEX function", ex);
+					function = null;
+				}
+				createdatasetGraph(points, function);
+				if (function != null) {
+					printFitResult("Function", function, points);
+					Double x = tools.getConfigurationValue(PARAMETER_VALUE_X).toDouble();
+					Double y = tools.getConfigurationValue(PARAMETER_VALUE_Y).toDouble();
+					if (x != null) {
+						Double value = function.value(x);
+						printValues("F", x, value);
+					}
+					if (y != null && (function instanceof InversableFunction)) {
+						Function inverse = ((InversableFunction)function).getInverseFunction();
+						Double value = inverse.value(y);
+						printValues("F", value, y);
+					}
+				}
+			}
+			return true;
 		}
 		return false;
 	}
@@ -110,6 +147,38 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			String skipPattern = tools.getConfigurationValue(PARAMETER_PATTERN_SKIP).toString("");
 			return loadResults(file, encoding, keepPattern, skipPattern);
 		}
+	}
+	
+	private List<DataPoint> loadDataset() throws PluginException {
+		File file = tools.getConfigurationValue(PARAMETER_CSV_FILE).toFile();
+		if (file == null) {
+			tools.error("File should be specified.");
+			return null;
+		} else {
+			return loadDataset(file);
+		}
+	}
+	
+	private Function getDatasetFunction(FunctionType type, List<? extends DataPoint> points) {
+		switch (type) {
+		case LinearApdex:
+			return functions.getZFunction(points);
+		case ExponentialApdex:
+			return functions.getExponentialApdexFunction(points);
+		case LogisticApdex:
+			return functions.getLogisticApdexFunction(points);
+		case LinearError:
+			return functions.getMirrorZFunction(points);
+		case LogisticError:
+			return functions.getLogisticErrorFunction(points);
+		case LogisticThroughput:
+			return functions.getLogisticThroughputFunction(points);
+		case CumulativeRayleigh:
+			return functions.getCumulativeRayleighFunction(points);
+		case ExponentialDistribution:
+			return functions.getExponentialDistributionFunction(points);
+		}
+		return null;
 	}
 
 	private Function processApdex(List<ConcurrentRequestData> stats, ApdexFunctionType type, boolean successful, double apdexLimitSatisfied, double apdexLimitTolerated) {
@@ -231,6 +300,16 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		graph.add("Maximum", max);
 	}
 	
+	private void createdatasetGraph(List<DataPoint> points, Function function) {
+		Graph graph = tools.graph().createGraph("Dataset");
+		graph.setXAxis("X", null, null);
+		graph.setYAxis("Y");
+		if (function != null) {
+			graph.add(function.toString(), function);
+		}
+		graph.add("Points", points);
+	}
+	
 	private void printDates(List<JmeterResult> results) {
 		Date min = null;
 		Date max = null;
@@ -263,6 +342,18 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			if (!Double.isNaN(r2)) {
 				print("%s R2: %.2f", name, r2);
 			}
+		}
+	}
+	
+	private void printValues(String functionName, Double x, Double y) {
+		if (x != null && y != null) {
+			print("%s(%.2f) = %.2f", functionName, x, y);
+		} else if (x != null) {
+			print("%s(%.2f) = ?", functionName, x);
+		} else if (y != null) {
+			print("%s(?) = %.2f", functionName, y);
+		} else {
+			print("%s(?) = ?", functionName);
 		}
 	}
 	
@@ -585,6 +676,16 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			}
 		}
 		return results;
+	}
+	
+	private List<DataPoint> loadDataset(File file) throws PluginException {
+		List<DataPointImpl> dataset;
+		try (Reader reader = new InputStreamReader(new FileInputStream(file), "UTF-8")) {
+			dataset = tools.csv().fromCsv(reader, DataPointImpl.class);
+		} catch (IOException|TransformerException ex) {
+			throw new PluginException("Cannot load CSV dataset file", ex);
+		}
+		return (List)dataset;
 	}
 	
 	private DataPoint point(double x, double y) {
