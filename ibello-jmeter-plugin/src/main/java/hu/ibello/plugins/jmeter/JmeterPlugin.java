@@ -45,6 +45,9 @@ public class JmeterPlugin implements IbelloTaskRunner {
 	private final static String PARAMETER_APDEX_SATISFIED = "jmeter.apdex.satisfied";
 	private final static String PARAMETER_APDEX_TOLERATED = "jmeter.apdex.tolerated";
 	private final static String PARAMETER_CSV_FILE = "jmeter.file.csv";
+	private final static String PARAMETER_GRAPH_TITLE = "jmeter.title.graph";
+	private final static String PARAMETER_X_TITLE = "jmeter.title.x";
+	private final static String PARAMETER_Y_TITLE = "jmeter.title.y";
 	private final static String PARAMETER_FIT_FUNCTION = "jmeter.fit.function";
 	private final static String PARAMETER_VALUE_X = "jmeter.value.x";
 	private final static String PARAMETER_VALUE_Y = "jmeter.value.y";
@@ -112,10 +115,13 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				try {
 					tools.regression().getNonLinearRegression(function, points).run();
 				} catch (Exception ex) {
-					tools.error("Cannot fit APDEX function", ex);
+					tools.error("Cannot fit function", ex);
 					function = null;
 				}
-				createdatasetGraph(points, function);
+				String title = tools.getConfigurationValue(PARAMETER_GRAPH_TITLE).toString("Dataset");
+				String xTitle = tools.getConfigurationValue(PARAMETER_X_TITLE).toString("X");
+				String yTitle = tools.getConfigurationValue(PARAMETER_Y_TITLE).toString("Y");
+				createDatasetGraph(title, xTitle, yTitle, points, function);
 				if (function != null) {
 					printFitResult("Function", function, points);
 					Double x = tools.getConfigurationValue(PARAMETER_VALUE_X).toDouble();
@@ -300,10 +306,10 @@ public class JmeterPlugin implements IbelloTaskRunner {
 		graph.add("Maximum", max);
 	}
 	
-	private void createdatasetGraph(List<DataPoint> points, Function function) {
-		Graph graph = tools.graph().createGraph("Dataset");
-		graph.setXAxis("X", null, null);
-		graph.setYAxis("Y");
+	private void createDatasetGraph(String title, String xTitle, String yTitle, List<DataPoint> points, Function function) {
+		Graph graph = tools.graph().createGraph(title);
+		graph.setXAxis(xTitle, null, null);
+		graph.setYAxis(yTitle);
 		if (function != null) {
 			graph.add(function.toString(), function);
 		}

@@ -104,7 +104,7 @@
         },
         {
         	"title": "Function fitting",
-            "description": "Fits the selected function to the given CSV dataset.",
+            "description": "Fits the selected function to the given CSV dataset. The data in the dataset should be in the columns named \"x\" and \"y\".",
             "name": "jmeter.fit",
             "parameters": [
                 {
@@ -112,6 +112,24 @@
                     "description": "CSV dataset file",
                     "name": "jmeter.file.csv",
                     "kind": "FILE"
+                },
+                {
+                    "title": "Title",
+                    "description": "Title of the graph",
+                    "name": "jmeter.title.graph",
+                    "kind": "STRING"
+                },
+                {
+                    "title": "X label",
+                    "description": "Title of the X axis",
+                    "name": "jmeter.title.x",
+                    "kind": "STRING"
+                },
+                {
+                    "title": "Y label",
+                    "description": "Title of the Y axis",
+                    "name": "jmeter.title.y",
+                    "kind": "STRING"
                 },
                 {
                     "title": "Function",
