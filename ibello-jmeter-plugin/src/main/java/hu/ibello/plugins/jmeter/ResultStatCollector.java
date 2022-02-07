@@ -1,6 +1,7 @@
 package hu.ibello.plugins.jmeter;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +33,7 @@ public class ResultStatCollector {
 	public List<ConcurrentRequestData> getConcurrentStats(int satisfiedThresholds, int toleratedThresholds) {
 		totalConcurrentStats = new ConcurrentRequestData(satisfiedThresholds, toleratedThresholds);
 		Map<String, ConcurrentRequestData> map = new HashMap<>();
-		for (JmeterResult result : results) {
+		for (JmeterResult result : summarizeResultsByThread()) {
 			ConcurrentRequestData requestData = getConcurrentRequestDataFor(map, result, satisfiedThresholds, toleratedThresholds);
 			requestData.register(result);
 			totalConcurrentStats.register(result);
@@ -72,5 +73,38 @@ public class ResultStatCollector {
 			map.put(result.getLabel(), data);
 		}
 		return data;
+	}
+	
+	private Collection<JmeterResult> summarizeResultsByThread() {
+		Map<String, Integer> ncrMap = getNCRByLabel();
+		Map<String, JmeterResult> summarizedResults = new HashMap<>();
+		for (JmeterResult r : results) {
+			Integer ncr = ncrMap.get(r.getLabel());
+			if (ncr == null) {
+				throw new IllegalStateException("NCR is null in results summary algorithm.");
+			}
+			String label = "NCR=" + ncr + "," + r.getThreadName();
+			JmeterResult existingR = summarizedResults.get(label);
+			if (existingR == null) {
+				summarizedResults.put(label, r);
+			} else {
+				existingR.append(r);
+			}
+		}
+		return summarizedResults.values();
+	}
+	
+	private Map<String, Integer> getNCRByLabel() {
+		Map<String, Integer> ncrMap = new HashMap<>();
+		for (JmeterResult r : results) {
+			Integer ncr = ncrMap.get(r.getLabel());
+			if (ncr == null) {
+				ncr = 1;
+			} else {
+				ncr = ncr + 1;
+			}
+			ncrMap.put(r.getLabel(), ncr);
+		}
+		return ncrMap;
 	}
 }

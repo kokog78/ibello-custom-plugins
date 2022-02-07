@@ -494,16 +494,18 @@ public class JmeterPlugin implements IbelloTaskRunner {
 			row.addCell(data.getFirstFailedDate() == null ? "" : fmt.format(data.getFirstFailedDate()));
 			row.addCell(data.getLastFailedDate() == null ? "" : fmt.format(data.getLastFailedDate()));
 		}
-		TableRow row = table.addRow();
-		row.addCell(text("total"));
-		row.addCell(fmt.format(total.getStartDate()));
-		row.addCell(fmt.format(total.getEndDate()));
-		row.addCell(total.getCount());
-		row.addCell(total.getFailedCount());
-		row.addCell(total.getFirstSuccessDate() == null ? "" : fmt.format(total.getFirstSuccessDate()));
-		row.addCell(total.getLastSuccessDate() == null ? "" : fmt.format(total.getLastSuccessDate()));
-		row.addCell(total.getFirstFailedDate() == null ? "" : fmt.format(total.getFirstFailedDate()));
-		row.addCell(total.getLastFailedDate() == null ? "" : fmt.format(total.getLastFailedDate()));
+		if (total != null) {
+			TableRow row = table.addRow();
+			row.addCell(text("total"));
+			row.addCell(total.getStartDate()==null ? "" : fmt.format(total.getStartDate()));
+			row.addCell(total.getEndDate()==null ? "" : fmt.format(total.getEndDate()));
+			row.addCell(total.getCount());
+			row.addCell(total.getFailedCount());
+			row.addCell(total.getFirstSuccessDate() == null ? "" : fmt.format(total.getFirstSuccessDate()));
+			row.addCell(total.getLastSuccessDate() == null ? "" : fmt.format(total.getLastSuccessDate()));
+			row.addCell(total.getFirstFailedDate() == null ? "" : fmt.format(total.getFirstFailedDate()));
+			row.addCell(total.getLastFailedDate() == null ? "" : fmt.format(total.getLastFailedDate()));
+		}
 	}
 	
 	private List<DataPoint> getApdexData(List<ConcurrentRequestData> stats) {
