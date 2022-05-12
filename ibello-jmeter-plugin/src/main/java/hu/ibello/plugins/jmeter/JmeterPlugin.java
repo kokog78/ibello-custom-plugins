@@ -96,8 +96,8 @@ public class JmeterPlugin implements IbelloTaskRunner {
 				// test run info
 				printDates(results);
 				// apdex
-				Function successfulApdexInverseFunction = processApdex(stats, type, true, apdexLimitSatisfied, apdexLimitTolerated);
-				processApdex(stats, type, false, apdexLimitSatisfied, apdexLimitTolerated);
+				Function successfulApdexInverseFunction = processApdex(stats, type, false, apdexLimitSatisfied, apdexLimitTolerated);
+				processApdex(stats, type, true, apdexLimitSatisfied, apdexLimitTolerated);
 				// failures
 				FailureData failure = processFailures(stats);
 				// summary table
