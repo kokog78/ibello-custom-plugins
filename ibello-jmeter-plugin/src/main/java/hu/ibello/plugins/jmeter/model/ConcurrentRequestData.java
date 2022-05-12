@@ -33,7 +33,9 @@ public class ConcurrentRequestData {
 	}
 	
 	public void register(JmeterResult result) {
-		if (result.getElapsed() <= satisfiedThresholds) {
+		if (!result.isSuccess()) {
+			frustratingCount++;
+		} else if (result.getElapsed() <= satisfiedThresholds) {
 			satisfiedCount++;
 		} else if (result.getElapsed() <= toleratedThresholds) {
 			toleratedCount++;
